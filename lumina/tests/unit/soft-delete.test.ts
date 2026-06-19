@@ -52,6 +52,34 @@ test('findUnique with select:{id:true} still hides soft-deleted rows', async () 
   await db.$includeDeleted.client.delete({ where: { id: c.id } })
 })
 
+test('aggregate() excludes soft-deleted rows', async () => {
+  const nationalId = '10000000000005'
+  const c = await db.client.create({ data: { legalName: 'AggregateTest', nationalId } })
+
+  const before = await db.client.aggregate({ _count: { id: true }, where: { nationalId } })
+  expect(before._count.id).toBe(1)
+
+  await db.$softDelete('Client', c.id, new Date(Date.now() + 3 * 864e5))
+
+  const after = await db.client.aggregate({ _count: { id: true }, where: { nationalId } })
+  expect(after._count.id).toBe(0)
+
+  // cleanup
+  await db.$includeDeleted.client.delete({ where: { id: c.id } })
+})
+
+test('findUniqueOrThrow() throws P2025 for soft-deleted rows', async () => {
+  const nationalId = '10000000000006'
+  const c = await db.client.create({ data: { legalName: 'P2025Test', nationalId } })
+  await db.$softDelete('Client', c.id, new Date(Date.now() + 3 * 864e5))
+
+  const err = await db.client.findUniqueOrThrow({ where: { id: c.id } }).catch((e) => e)
+  expect(err).toHaveProperty('code', 'P2025')
+
+  // cleanup
+  await db.$includeDeleted.client.delete({ where: { id: c.id } })
+})
+
 test('$softDelete throws for non-soft-deletable model', async () => {
   await expect(
     db.$softDelete('AuditLog', 'some-id', new Date(Date.now() + 3 * 864e5)),
