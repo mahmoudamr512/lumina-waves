@@ -1,8 +1,10 @@
 // tests/unit/drive.test.ts
 import { vi, beforeEach, afterEach } from 'vitest'
 
-const create = vi.fn(async () => ({ data: { id: 'new' } }))
-const list = vi.fn(async () => ({ data: { files: [] } }))
+// Typed mock returns so `.mockResolvedValue(...)` accepts folder records
+// (an untyped `vi.fn` would infer `files: never[]` and reject `[{ id }]`).
+const create = vi.fn(async (): Promise<{ data: { id: string } }> => ({ data: { id: 'new' } }))
+const list = vi.fn(async (): Promise<{ data: { files: { id: string }[] } }> => ({ data: { files: [] } }))
 
 vi.mock('googleapis', () => ({
   google: {
