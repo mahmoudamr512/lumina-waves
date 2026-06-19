@@ -32,9 +32,20 @@ export async function generateContractPdf(contractId: string) {
 
   const k = await db.masterContract.findUnique({
     where: { id: contractId },
-    include: { client: true },
+    include: {
+      client: true,
+      annexes: { include: { works: { include: { credits: true } } } },
+    },
   })
   if (!k) throw new Error('contract not found')
+
+  // For a sale & assignment, gather the works being sold (for the consideration clause).
+  const saleWorks = k.annexes.flatMap((a) =>
+    a.works.map((w) => ({
+      titleAr: w.title,
+      performer: w.credits.find((c) => c.role === 'PERFORMER')?.name ?? (k.client.stageName ?? undefined),
+    })),
+  )
 
   const SETTLEMENT_AR: Record<string, string> = {
     MONTHLY: 'شهرية',
@@ -62,6 +73,10 @@ export async function generateContractPdf(contractId: string) {
     noticeDays: k.noticeDays,
     contractDateAr: dateAr,
     regNo: `${k.id.slice(-5).toUpperCase()} / ${(k.signedDate ?? k.createdAt).getFullYear()}`,
+    // Sale & assignment (FULL_ASSIGNMENT): lump-sum buyout (reusing minPayoutCents
+    // as the EGP buyout amount) + the list of works being sold.
+    buyoutAmountEgp: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
+    works: saleWorks.length ? saleWorks : undefined,
   })
 
   const buf = await renderPdf(html)
@@ -115,6 +130,7 @@ export async function uploadDocument(input: {
   filename: string
   contractId?: string
   annexId?: string
+  folderId?: string
 }) {
   const u = await requireUser('create', 'Document')
   const storageDir = path.resolve(STORAGE)
@@ -145,6 +161,7 @@ export async function uploadDocument(input: {
       status: 'EXECUTED',
       contractId: input.contractId,
       annexId: input.annexId,
+      folderId: input.folderId,
     },
   })
   await writeAudit({
@@ -160,7 +177,7 @@ export async function uploadDocument(input: {
   } catch (err) {
     console.warn('[uploadDocument] OCR enqueue failed (best-effort):', err)
   }
-  // Best-effort Drive backup — resolve owning clientId via contractId or annexId
+  // Best-effort Drive backup — resolve owning clientId via contractId, annexId, or folderId
   try {
     let clientId: string | undefined
     if (input.contractId) {
@@ -169,6 +186,9 @@ export async function uploadDocument(input: {
     } else if (input.annexId) {
       const a = await db.annex.findUnique({ where: { id: input.annexId }, include: { contract: { select: { clientId: true } } } })
       clientId = a?.contract?.clientId
+    } else if (input.folderId) {
+      const f = await db.folder.findUnique({ where: { id: input.folderId }, select: { clientId: true } })
+      clientId = f?.clientId
     }
     if (clientId) await queues.drive.add('backup', { clientId })
   } catch (err) {
