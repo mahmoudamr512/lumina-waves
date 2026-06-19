@@ -1,5 +1,6 @@
 // tests/unit/documents.service.test.ts
 import { vi, beforeEach } from 'vitest'
+import path from 'node:path'
 
 // Mock auth so requireUser returns a controllable actor
 vi.mock('@/lib/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'admin', role: 'ADMIN' })) }))
@@ -170,4 +171,33 @@ test('uploadDocument succeeds even when OCR enqueue throws', async () => {
   const doc = await uploadDocument({ buffer: buf, filename: 'test-upload3.pdf' })
   expect(doc.filename).toBe('test-upload3.pdf')
   expect(doc.status).toBe('EXECUTED')
+})
+
+test('uploadDocument with traversal filename stores file inside STORAGE_DIR', async () => {
+  const STORAGE_DIR = process.env.STORAGE_DIR ?? './.storage'
+  const buf = Buffer.from('%PDF-traversal-test')
+  const doc = await uploadDocument({ buffer: buf, filename: '../../evil.sh' })
+  const resolved = path.resolve(doc.storagePath)
+  const resolvedStorage = path.resolve(STORAGE_DIR)
+  expect(resolved.startsWith(resolvedStorage + path.sep)).toBe(true)
+  expect(path.basename(doc.storagePath)).not.toContain('..')
+  expect(path.basename(doc.storagePath)).not.toMatch(/[/\\]/)
+})
+
+test('uploadDocument with deep traversal filename stays inside STORAGE_DIR', async () => {
+  const STORAGE_DIR = process.env.STORAGE_DIR ?? './.storage'
+  const buf = Buffer.from('%PDF-deep-traversal')
+  const doc = await uploadDocument({ buffer: buf, filename: '../../../etc/passwd' })
+  const resolved = path.resolve(doc.storagePath)
+  const resolvedStorage = path.resolve(STORAGE_DIR)
+  expect(resolved.startsWith(resolvedStorage + path.sep)).toBe(true)
+})
+
+test('uploadDocument preserves original filename as display metadata', async () => {
+  const buf = Buffer.from('%PDF-meta')
+  const doc = await uploadDocument({ buffer: buf, filename: '../../some-messy/../name.pdf' })
+  // The document filename (metadata) should preserve the original (minus control chars),
+  // but the on-disk storagePath basename must NOT contain '..' or path separators
+  expect(doc.filename).toBe('../../some-messy/../name.pdf')
+  expect(path.basename(doc.storagePath)).not.toContain('..')
 })
