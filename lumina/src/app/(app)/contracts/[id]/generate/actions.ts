@@ -26,6 +26,7 @@ export async function generateContract(
     revalidatePath(`/contracts/${contractId}/generate`)
     return { error: null, docId: doc.id }
   } catch (err) {
+    console.error('[generateContract] failed:', err)
     if (err instanceof AuthzError) {
       return { error: 'ليس لديك صلاحية لإنشاء مستند العقد. هذا الإجراء متاح للمستخدمين من فئة المدير والقانونيين فقط.' }
     }
