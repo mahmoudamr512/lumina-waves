@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "clients": "Clients",
+    "contracts": "Contracts",
+    "works": "Works",
+    "documents": "Documents",
+    "search": "Search",
+    "home": "Home"
+  },
+  "auth": {
+    "signOut": "Sign out",
+    "signIn": "Sign in"
+  },
+  "actions": {
+    "save": "Save",
+    "newClient": "New client",
+    "cancel": "Cancel"
+  },
+  "locale": {
+    "switchTo": "العربية",
+    "current": "English"
+  }
+}
