@@ -1,5 +1,6 @@
 // tests/unit/documents.service.test.ts
 import { vi, beforeEach } from 'vitest'
+import path from 'node:path'
 
 // Mock auth so requireUser returns a controllable actor
 vi.mock('@/lib/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'admin', role: 'ADMIN' })) }))
@@ -7,12 +8,25 @@ vi.mock('@/lib/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'admin', ro
 // Mock renderPdf so we never need Playwright / Chromium in unit tests
 vi.mock('@/lib/pdf', () => ({ renderPdf: vi.fn(async () => Buffer.from('%PDF-fake')) }))
 
+// Mock queue for uploadDocument tests — no Redis needed
+vi.mock('@/lib/queue', () => ({
+  connectionOptions: {},
+  queues: {
+    ocr: { add: vi.fn(async () => ({})), name: 'ocr' },
+    index: { add: vi.fn(async () => ({})), name: 'index' },
+    drive: { add: vi.fn(async () => ({})), name: 'drive' },
+    mail: { add: vi.fn(async () => ({})), name: 'mail' },
+  },
+}))
+
 import { generateContractPdf, markExecuted } from '@/services/documents'
 import { createContract } from '@/services/contracts'
 import { createClient } from '@/services/clients'
 import { requireUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { AuthzError } from '@/lib/errors'
+import { uploadDocument } from '@/services/documents'
+import { queues } from '@/lib/queue'
 
 const mockRequireUser = requireUser as ReturnType<typeof vi.fn>
 
@@ -126,4 +140,66 @@ test('generateContractPdf rejects OPERATIONS role (not in sensitive allowlist)',
   mockRequireUser.mockResolvedValue({ id: 'ops-user', role: 'OPERATIONS' })
 
   await expect(generateContractPdf(k.id)).rejects.toThrow(AuthzError)
+})
+
+const mockOcrAdd = (queues.ocr.add as ReturnType<typeof vi.fn>)
+
+test('uploadDocument creates a Document row and audit entry', async () => {
+  const buf = Buffer.from('%PDF-fake-upload')
+  const doc = await uploadDocument({ buffer: buf, filename: 'test-upload.pdf' })
+  expect(doc.filename).toBe('test-upload.pdf')
+  expect(doc.status).toBe('EXECUTED')
+
+  const auditRow = await db.auditLog.findFirst({
+    where: { entity: 'Document', entityId: doc.id, action: 'CREATE' },
+  })
+  expect(auditRow).not.toBeNull()
+  expect(auditRow?.actorId).toBe('admin')
+})
+
+test('uploadDocument enqueues an OCR job (best-effort)', async () => {
+  mockOcrAdd.mockClear()
+  const buf = Buffer.from('%PDF-fake-upload-2')
+  const doc = await uploadDocument({ buffer: buf, filename: 'test-upload2.pdf' })
+  expect(mockOcrAdd).toHaveBeenCalledWith('ocr', expect.objectContaining({ documentId: doc.id }))
+})
+
+test('uploadDocument succeeds even when OCR enqueue throws', async () => {
+  mockOcrAdd.mockRejectedValueOnce(new Error('Redis connection refused'))
+  const buf = Buffer.from('%PDF-fake-upload-3')
+  // Should NOT throw — OCR is best-effort
+  const doc = await uploadDocument({ buffer: buf, filename: 'test-upload3.pdf' })
+  expect(doc.filename).toBe('test-upload3.pdf')
+  expect(doc.status).toBe('EXECUTED')
+})
+
+test('uploadDocument with traversal filename stores file inside STORAGE_DIR', async () => {
+  const STORAGE_DIR = process.env.STORAGE_DIR ?? './.storage'
+  const buf = Buffer.from('%PDF-traversal-test')
+  const doc = await uploadDocument({ buffer: buf, filename: '../../evil.sh' })
+  const resolved = path.resolve(doc.storagePath)
+  const resolvedStorage = path.resolve(STORAGE_DIR)
+  expect(resolved.startsWith(resolvedStorage + path.sep)).toBe(true)
+  expect(path.basename(doc.storagePath)).not.toContain('..')
+  expect(path.basename(doc.storagePath)).not.toMatch(/[/\\]/)
+})
+
+test('uploadDocument with deep traversal filename stays inside STORAGE_DIR', async () => {
+  const STORAGE_DIR = process.env.STORAGE_DIR ?? './.storage'
+  const buf = Buffer.from('%PDF-deep-traversal')
+  const doc = await uploadDocument({ buffer: buf, filename: '../../../etc/passwd' })
+  const resolved = path.resolve(doc.storagePath)
+  const resolvedStorage = path.resolve(STORAGE_DIR)
+  expect(resolved.startsWith(resolvedStorage + path.sep)).toBe(true)
+})
+
+test('uploadDocument preserves original filename as display metadata', async () => {
+  const buf = Buffer.from('%PDF-meta')
+  const doc = await uploadDocument({ buffer: buf, filename: '../../some-messy/../name.pdf' })
+  // The document filename (metadata) should preserve the original (minus control chars),
+  // but the on-disk storagePath basename must NOT contain '..' or path separators
+  expect(doc.filename).toBe('../../some-messy/../name.pdf')
+  expect(path.basename(doc.storagePath)).not.toContain('..')
+  const STORAGE_DIR_3 = process.env.STORAGE_DIR ?? './.storage'
+  expect(path.resolve(doc.storagePath).startsWith(path.resolve(STORAGE_DIR_3) + path.sep)).toBe(true)
 })

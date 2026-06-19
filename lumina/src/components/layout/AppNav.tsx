@@ -15,9 +15,10 @@ export interface AppNavProps {
 
 const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
   { href: '/clients', label: 'العملاء' },
-  // Placeholders for later sections.
   { href: '/contracts', label: 'العقود' },
   { href: '/works', label: 'الأعمال' },
+  { href: '/documents', label: 'المستندات' },
+  { href: '/search', label: 'البحث' },
 ]
 
 /**
