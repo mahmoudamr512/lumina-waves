@@ -200,4 +200,6 @@ test('uploadDocument preserves original filename as display metadata', async () 
   // but the on-disk storagePath basename must NOT contain '..' or path separators
   expect(doc.filename).toBe('../../some-messy/../name.pdf')
   expect(path.basename(doc.storagePath)).not.toContain('..')
+  const STORAGE_DIR_3 = process.env.STORAGE_DIR ?? './.storage'
+  expect(path.resolve(doc.storagePath).startsWith(path.resolve(STORAGE_DIR_3) + path.sep)).toBe(true)
 })
