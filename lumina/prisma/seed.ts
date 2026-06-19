@@ -8,8 +8,6 @@ const db = new PrismaClient({
 })
 
 async function main() {
-  const passwordHash = await bcrypt.hash('changeme', 12)
-
   await db.user.upsert({
     where: { email: 'admin@luminawaves.com' },
     update: {},
@@ -17,7 +15,7 @@ async function main() {
       email: 'admin@luminawaves.com',
       name: 'Admin',
       role: 'ADMIN',
-      passwordHash,
+      passwordHash: await bcrypt.hash('changeme', 12),
     },
   })
 
