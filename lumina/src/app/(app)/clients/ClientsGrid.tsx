@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Stagger, StaggerItem } from '@/components/motion'
 
 export interface ClientCard {
@@ -11,10 +12,11 @@ export interface ClientCard {
 }
 
 /**
- * Responsive, animated grid of client cards. Each card shows the stage name
- * (falling back to the legal name) prominently, the legal name as a subtitle,
- * and the national ID only when present — otherwise a subtle "مخفي" lock chip,
- * never a broken empty cell. Animation is reduced-motion safe via Stagger.
+ * Responsive, animated grid of client cards. Each card is a link to the
+ * client's tree detail page (/clients/[id]). Shows the stage name (falling
+ * back to the legal name) prominently, the legal name as a subtitle, and the
+ * national ID only when present — otherwise a subtle "مخفي" lock chip.
+ * Animation is reduced-motion safe via Stagger.
  */
 export function ClientsGrid({ clients }: { clients: ClientCard[] }) {
   return (
@@ -25,33 +27,38 @@ export function ClientsGrid({ clients }: { clients: ClientCard[] }) {
 
         return (
           <StaggerItem key={client.id}>
-            <article className="group h-full rounded-2xl border border-border-elevation bg-surface/70 p-5 transition hover:border-gold-400/40 hover:bg-surface">
-              <h2 className="truncate text-lg font-semibold text-foreground" title={title}>
-                {title}
-              </h2>
-              {hasSubtitle && (
-                <p className="mt-0.5 truncate text-sm text-muted" title={client.legalName}>
-                  {client.legalName}
-                </p>
-              )}
-
-              <div className="mt-4 flex items-center justify-between border-t border-border-elevation pt-3">
-                <span className="text-xs text-muted">الرقم القومي</span>
-                {client.nationalId ? (
-                  <span dir="ltr" className="font-mono text-sm tabular-nums text-foreground">
-                    {client.nationalId}
-                  </span>
-                ) : (
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-xs text-muted"
-                    title="غير مصرّح لك بعرض هذه البيانات"
-                  >
-                    <LockIcon />
-                    مخفي
-                  </span>
+            <Link
+              href={`/clients/${client.id}`}
+              className="block h-full rounded-2xl focus:outline-none focus:ring-2 focus:ring-gold-200"
+            >
+              <article className="group h-full rounded-2xl border border-border-elevation bg-surface/70 p-5 transition hover:border-gold-400/40 hover:bg-surface cursor-pointer">
+                <h2 className="truncate text-lg font-semibold text-foreground" title={title}>
+                  {title}
+                </h2>
+                {hasSubtitle && (
+                  <p className="mt-0.5 truncate text-sm text-muted" title={client.legalName}>
+                    {client.legalName}
+                  </p>
                 )}
-              </div>
-            </article>
+
+                <div className="mt-4 flex items-center justify-between border-t border-border-elevation pt-3">
+                  <span className="text-xs text-muted">الرقم القومي</span>
+                  {client.nationalId ? (
+                    <span dir="ltr" className="font-mono text-sm tabular-nums text-foreground">
+                      {client.nationalId}
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-xs text-muted"
+                      title="غير مصرّح لك بعرض هذه البيانات"
+                    >
+                      <LockIcon />
+                      مخفي
+                    </span>
+                  )}
+                </div>
+              </article>
+            </Link>
           </StaggerItem>
         )
       })}
