@@ -42,7 +42,10 @@ test('renderAnnex includes works-table headers and annex framing', () => {
   expect(html).toContain('المؤلف')
   expect(html).toContain('الملحن')
   expect(html).toContain('الموزع')
-  expect(html).toContain('ملحق رقم (24)')
+  // The title wraps "(24)" in an LTR isolate (U+2066…U+2069) so the parens
+  // render correctly in RTL; assert the parts rather than the literal join.
+  expect(html).toContain('ملحق رقم')
+  expect(html).toContain('(24)')
 })
 
 // ── HTML-injection guard tests ────────────────────────────────────────────────

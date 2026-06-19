@@ -57,6 +57,15 @@ const TERRITORY_AR: Record<string, string> = {
   WORLDWIDE: 'جميع أنحاء العالم',
 }
 
+// In an RTL paragraph, ASCII parentheses are bidi-mirrored and break around
+// numbers/Latin (e.g. "(24)" renders as ")24("). Wrapping each parenthetical in
+// an LTR isolate (U+2066 … U+2069) makes the parens render conventionally while
+// the Arabic inside still flows RTL. Applied only to text bodies — never to the
+// embedded SVGs (which contain url(...) etc.).
+function fixParens(html: string): string {
+  return html.replace(/\(([^()]*)\)/g, '⁦($1)⁩')
+}
+
 // Grant nature phrasing used in the granting clause, per grant type.
 const GRANT_NATURE_AR: Record<keyof typeof GRANT_TYPES, string> = {
   FULL_ASSIGNMENT: 'التنازل الكامل والنهائي عن كافة الحقوق المالية',
@@ -157,7 +166,8 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
     clause(10, '', `<p>حُرِّر هذا العقد من نسختين أصليتين بيد كل طرف نسخة للعمل بها عند الحاجة.</p>`),
   ].join('')
 
-  const body = `${intro}${tamheed}${clauses}${signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo })}`
+  // fixParens only the text body; the signature block carries SVGs (url(...)).
+  const body = `${fixParens(`${intro}${tamheed}${clauses}`)}${signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo })}`
   return layout({
     titleAr: 'عقد إدارة واستغلال مصنفات فنية',
     bodyHtml: body,
@@ -200,12 +210,11 @@ export function renderAnnex(d: AnnexData): string {
       </table>`)}
     ${clause(2, '', `<p>يقر الطرف الأول بأنه يمتلك كافة الحقوق اللازمة لاستغلال المصنفات الممنوح حقوق استغلالها للطرف الثاني بموجب هذا الملحق، وبكامل مسؤوليته أمام أي طرف ثالث قد يدّعي أي حقوق على تلك المصنفات بما فيهم المؤلفون والملحنون، ويتحمل وحده المسؤولية الكاملة عن أي قضايا أو منازعات تتعلق بمضمون أو محتوى أو ملكية تلك المصنفات.</p>`)}
     ${clause(3, '', `<p>تظل باقي بنود العقد الأصلي سارية.</p>`)}
-    ${clause(4, '', `<p>حُرِّر هذا الملحق من نسختين متطابقتين بيد كل طرف نسخة للعمل بموجبها عند الحاجة.</p>`)}
-    ${signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo })}`
+    ${clause(4, '', `<p>حُرِّر هذا الملحق من نسختين متطابقتين بيد كل طرف نسخة للعمل بموجبها عند الحاجة.</p>`)}`
 
   return layout({
-    titleAr: `ملحق رقم (${d.number}) لعقد استغلال مصنفات فنية`,
-    bodyHtml: body,
+    titleAr: fixParens(`ملحق رقم (${d.number}) لعقد استغلال مصنفات فنية`),
+    bodyHtml: fixParens(body) + signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo }),
     letterhead: letterheadHtml(),
     footer: footerHtml(),
     extraCss: BRANDING_CSS,
