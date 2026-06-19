@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
+    "e2e": "playwright test",
     "worker": "tsx src/workers/index.ts",
     "icons": "node scripts/generate-icons.mjs",
     "postinstall": "prisma generate"
