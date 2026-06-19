@@ -9,7 +9,7 @@ import { createClient } from '@/services/clients'
 const RUN = Date.now().toString().slice(-6)
 
 test('annexes auto-number per contract', async () => {
-  const c = await createClient({ legalName: 'C', nationalId: `100000000${RUN}99` })
+  const c = await createClient({ legalName: 'C', nationalId: `30000001${RUN}` })
   const k = await createContract({
     clientId: c.id,
     grantType: 'EXCLUSIVE_LICENSE',
@@ -24,7 +24,7 @@ test('annexes auto-number per contract', async () => {
 })
 
 test('contract with empty coverage rejected', async () => {
-  const c = await createClient({ legalName: 'C2', nationalId: `100000000${RUN}98` })
+  const c = await createClient({ legalName: 'C2', nationalId: `30000002${RUN}` })
   await expect(
     createContract({
       clientId: c.id,

@@ -10,10 +10,11 @@ export async function createClient(input: {
   address?: string
   phone?: string
 }) {
+  if (!/^\d{14}$/.test(input.nationalId)) throw new Error('nationalId must be exactly 14 digits')
   const u = await requireUser('create', 'Client')
   const row = await db.client.create({ data: input })
   await writeAudit({ actorId: u.id, action: 'CREATE', entity: 'Client', entityId: row.id, after: row })
-  return row
+  return redactSensitive(u.role, 'Client', row)
 }
 
 export async function getClient(id: string) {
@@ -36,7 +37,7 @@ export async function updateClient(
   const before = await db.client.findUnique({ where: { id } })
   const after = await db.client.update({ where: { id }, data: patch })
   await writeAudit({ actorId: u.id, action: 'UPDATE', entity: 'Client', entityId: id, before, after })
-  return after
+  return redactSensitive(u.role, 'Client', after)
 }
 
 export async function softDeleteClient(id: string) {

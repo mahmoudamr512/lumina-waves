@@ -60,6 +60,7 @@ model User {
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?
   purgeAfter   DateTime?
+  purgedAt     DateTime?
 }
 
 model Client {
@@ -73,6 +74,7 @@ model Client {
   createdAt  DateTime         @default(now())
   deletedAt  DateTime?
   purgeAfter DateTime?
+  purgedAt   DateTime?
 }
 
 model MasterContract {
@@ -94,6 +96,7 @@ model MasterContract {
   createdAt       DateTime   @default(now())
   deletedAt       DateTime?
   purgeAfter      DateTime?
+  purgedAt        DateTime?
 }
 
 model Annex {
@@ -107,6 +110,7 @@ model Annex {
   createdAt  DateTime       @default(now())
   deletedAt  DateTime?
   purgeAfter DateTime?
+  purgedAt   DateTime?
 
   @@unique([contractId, number])
 }
@@ -122,6 +126,7 @@ model Work {
   createdAt  DateTime   @default(now())
   deletedAt  DateTime?
   purgeAfter DateTime?
+  purgedAt   DateTime?
 }
 
 model Credit {
@@ -145,6 +150,7 @@ model Document {
   createdAt   DateTime        @default(now())
   deletedAt   DateTime?
   purgeAfter  DateTime?
+  purgedAt    DateTime?
 }
 
 model AuditLog {

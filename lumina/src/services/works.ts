@@ -27,7 +27,8 @@ export async function createWork(input: {
 
 export async function linkWorkToAnnex(workId: string, annexId: string) {
   const u = await requireUser('update', 'Work')
+  const before = await db.work.findUnique({ where: { id: workId } })
   const row = await db.work.update({ where: { id: workId }, data: { annexId, status: 'LINKED' } })
-  await writeAudit({ actorId: u.id, action: 'UPDATE', entity: 'Work', entityId: workId, after: row })
+  await writeAudit({ actorId: u.id, action: 'UPDATE', entity: 'Work', entityId: workId, before, after: row })
   return row
 }
