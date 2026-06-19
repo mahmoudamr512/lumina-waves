@@ -55,6 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: "true"
+      REDIS_URL: redis://localhost:6379
+      MEILI_HOST: http://localhost:7700
+      MEILI_KEY: devkey
     services:
       postgres:
         image: postgres:16
@@ -68,6 +71,19 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      meili:
+        image: getmeili/meilisearch:v1.10
+        env:
+          MEILI_MASTER_KEY: devkey
+        ports: ["7700:7700"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
