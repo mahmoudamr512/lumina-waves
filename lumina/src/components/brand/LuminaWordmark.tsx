@@ -1,4 +1,5 @@
 import type { BrandVariant } from './types';
+import { cn } from '@/lib/cn';
 
 export interface LuminaWordmarkProps {
   className?: string;
@@ -33,7 +34,7 @@ export function LuminaWordmark({ className, variant = 'gold' }: LuminaWordmarkPr
 
   return (
     <div
-      className={`flex flex-col items-center font-display leading-none ${textClass} ${className ?? ''}`}
+      className={cn('flex flex-col items-center font-display leading-none', textClass, className)}
     >
       <span className="text-[2.4em] font-semibold tracking-[0.22em]">LUMINA</span>
 

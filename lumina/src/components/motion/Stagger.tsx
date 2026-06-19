@@ -11,7 +11,9 @@ export interface StaggerProps extends HTMLMotionProps<'div'> {
 
 /**
  * Container that orchestrates a staggered entrance for `StaggerItem` children.
- * Respects `prefers-reduced-motion` (children appear immediately, no stagger).
+ * Respects `prefers-reduced-motion`: when reduced motion is preferred, renders
+ * a plain non-animated element so children appear immediately with no variant
+ * orchestration (matching the pattern used by FadeIn and Reveal).
  */
 export function Stagger({
   stagger = 0.08,
@@ -21,6 +23,10 @@ export function Stagger({
 }: StaggerProps) {
   const reducedMotion = useReducedMotion();
 
+  if (reducedMotion) {
+    return <motion.div {...rest}>{children}</motion.div>;
+  }
+
   return (
     <motion.div
       initial="hidden"
@@ -28,9 +34,7 @@ export function Stagger({
       variants={{
         hidden: {},
         show: {
-          transition: reducedMotion
-            ? {}
-            : { staggerChildren: stagger, delayChildren },
+          transition: { staggerChildren: stagger, delayChildren },
         },
       }}
       {...rest}
@@ -49,10 +53,14 @@ export interface StaggerItemProps extends HTMLMotionProps<'div'> {
 export function StaggerItem({ y = 12, children, ...rest }: StaggerItemProps) {
   const reducedMotion = useReducedMotion();
 
+  if (reducedMotion) {
+    return <motion.div {...rest}>{children}</motion.div>;
+  }
+
   return (
     <motion.div
       variants={{
-        hidden: reducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y },
+        hidden: { opacity: 0, y },
         show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
       }}
       {...rest}
