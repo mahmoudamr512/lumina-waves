@@ -63,6 +63,10 @@ export async function generateContractPdf(contractId: string) {
     entityId: doc.id,
     after: { filename, status: 'DRAFT' },
   })
+  // Best-effort Drive backup — outage must NOT fail the mutation
+  try { await queues.drive.add('backup', { clientId: k.client.id }) } catch (err) {
+    console.warn('[generateContractPdf] Drive enqueue failed (best-effort):', err)
+  }
 
   return doc
 }
@@ -135,6 +139,20 @@ export async function uploadDocument(input: {
     await queues.ocr.add('ocr', { documentId: doc.id, filePath: storagePath })
   } catch (err) {
     console.warn('[uploadDocument] OCR enqueue failed (best-effort):', err)
+  }
+  // Best-effort Drive backup — resolve owning clientId via contractId or annexId
+  try {
+    let clientId: string | undefined
+    if (input.contractId) {
+      const k = await db.masterContract.findUnique({ where: { id: input.contractId }, select: { clientId: true } })
+      clientId = k?.clientId
+    } else if (input.annexId) {
+      const a = await db.annex.findUnique({ where: { id: input.annexId }, include: { contract: { select: { clientId: true } } } })
+      clientId = a?.contract?.clientId
+    }
+    if (clientId) await queues.drive.add('backup', { clientId })
+  } catch (err) {
+    console.warn('[uploadDocument] Drive enqueue failed (best-effort):', err)
   }
   return doc
 }
