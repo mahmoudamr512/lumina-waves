@@ -6,6 +6,7 @@ import { AuthzError } from '@/lib/errors'
 import { writeAudit } from '@/lib/audit'
 import { renderContract } from '@/templates/contracts'
 import { renderPdf } from '@/lib/pdf'
+import { queues } from '@/lib/queue'
 
 const STORAGE = process.env.STORAGE_DIR ?? './.storage'
 
@@ -81,5 +82,41 @@ export async function markExecuted(documentId: string, signedFilePath: string) {
     after: { status: 'EXECUTED', storagePath: signedFilePath },
   })
 
+  return doc
+}
+
+export async function uploadDocument(input: {
+  buffer: Buffer
+  filename: string
+  contractId?: string
+  annexId?: string
+}) {
+  const u = await requireUser('create', 'Document')
+  const storageDir = path.resolve(STORAGE)
+  await mkdir(storageDir, { recursive: true })
+  const storagePath = path.join(storageDir, `${Date.now()}-${input.filename}`)
+  await writeFile(storagePath, input.buffer)
+  const doc = await db.document.create({
+    data: {
+      filename: input.filename,
+      storagePath,
+      status: 'EXECUTED',
+      contractId: input.contractId,
+      annexId: input.annexId,
+    },
+  })
+  await writeAudit({
+    actorId: u.id,
+    action: 'CREATE',
+    entity: 'Document',
+    entityId: doc.id,
+    after: { filename: input.filename },
+  })
+  // Best-effort OCR enqueue — Redis outage must NOT fail the upload
+  try {
+    await queues.ocr.add('ocr', { documentId: doc.id, filePath: storagePath })
+  } catch (err) {
+    console.warn('[uploadDocument] OCR enqueue failed (best-effort):', err)
+  }
   return doc
 }
