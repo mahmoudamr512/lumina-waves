@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "clients": "العملاء",
+    "contracts": "العقود",
+    "works": "الأعمال",
+    "documents": "المستندات",
+    "search": "البحث",
+    "home": "الصفحة الرئيسية"
+  },
+  "auth": {
+    "signOut": "تسجيل الخروج",
+    "signIn": "تسجيل الدخول"
+  },
+  "actions": {
+    "save": "حفظ",
+    "newClient": "عميل جديد",
+    "cancel": "إلغاء"
+  },
+  "locale": {
+    "switchTo": "English",
+    "current": "العربية"
+  }
+}

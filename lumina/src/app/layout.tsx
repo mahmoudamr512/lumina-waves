@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Cinzel, Tajawal } from "next/font/google";
+import { cookies } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
+import { dirFor, defaultLocale } from "@/i18n";
 import "./globals.css";
 
 // Display / Latin wordmark serif — Trajan-style. Used only for the wordmark + hero display.
@@ -27,18 +30,26 @@ export const viewport: Viewport = {
   themeColor: "#0A0A0D",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get("NEXT_LOCALE")?.value ?? defaultLocale;
+  const messages = (await import(`@/messages/${locale}.json`)).default;
+
   return (
     <html
-      lang="ar"
-      dir="rtl"
+      lang={locale}
+      dir={dirFor(locale)}
       className={`${cinzel.variable} ${tajawal.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-ink text-foreground">{children}</body>
+      <body className="min-h-full bg-ink text-foreground">
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {children}
+        </NextIntlClientProvider>
+      </body>
     </html>
   );
 }
