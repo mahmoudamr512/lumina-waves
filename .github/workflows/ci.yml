@@ -43,6 +43,8 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
+      # Chromium is needed by the unit suite (PDF renderer test uses Playwright).
+      - run: npx playwright install --with-deps chromium
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run test
