@@ -1,6 +1,19 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+/**
+ * Escapes the five characters that are unsafe in HTML text/attribute contexts.
+ * Apply to every caller-supplied string before interpolating into HTML.
+ */
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 // Cached base64-encoded woff2 so we only read the file once per process.
 let _fontB64: string | null = null
 
