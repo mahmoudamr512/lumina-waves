@@ -1,6 +1,16 @@
 // tests/unit/trash.service.test.ts
 import { vi } from 'vitest'
 vi.mock('@/lib/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'admin', role: 'ADMIN' })) }))
+// Mock queue so no real Redis connection is opened in unit tests
+vi.mock('@/lib/queue', () => ({
+  connectionOptions: {},
+  queues: {
+    ocr: { add: vi.fn(async () => ({})) },
+    index: { add: vi.fn(async () => ({})) },
+    drive: { add: vi.fn(async () => ({})) },
+    mail: { add: vi.fn(async () => ({})) },
+  },
+}))
 import { createClient, softDeleteClient } from '@/services/clients'
 import { listTrash, restore, purge, purgeExpired } from '@/services/trash'
 import { db } from '@/lib/db'
