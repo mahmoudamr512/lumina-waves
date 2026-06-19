@@ -1,0 +1,165 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  OPERATIONS
+  LEGAL
+  FINANCE
+  VIEWER
+}
+
+enum GrantType {
+  FULL_ASSIGNMENT
+  EXCLUSIVE_LICENSE
+  NON_EXCLUSIVE_LICENSE
+  MANAGEMENT
+}
+
+enum WorkStatus {
+  PENDING_ANNEX
+  LINKED
+}
+
+enum DocStatus {
+  DRAFT
+  EXECUTED
+}
+
+enum RightsAxis {
+  MASTER
+  PUBLISHING
+  BOTH
+}
+
+enum CreditRole {
+  AUTHOR
+  COMPOSER
+  ARRANGER
+  PERFORMER
+  PRODUCER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role      @default(VIEWER)
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+  purgeAfter   DateTime?
+  purgedAt     DateTime?
+}
+
+model Client {
+  id         String           @id @default(cuid())
+  legalName  String
+  stageName  String?
+  nationalId String           @unique // الرقم القومي — natural key, sensitive
+  address    String?
+  phone      String?
+  contracts  MasterContract[]
+  createdAt  DateTime         @default(now())
+  deletedAt  DateTime?
+  purgeAfter DateTime?
+  purgedAt   DateTime?
+}
+
+model MasterContract {
+  id              String     @id @default(cuid())
+  client          Client     @relation(fields: [clientId], references: [id])
+  clientId        String
+  grantType       GrantType
+  territory       String // EGYPT | MENA | WORLDWIDE
+  termMonths      Int
+  autoRenew       Boolean    @default(true)
+  noticeDays      Int        @default(90)
+  coverage        Json // string[] of coverage keys (Art.149)
+  revenueShareBps Int? // sensitive (basis points)
+  minPayoutCents  Int? // sensitive
+  settlementFreq  String? // e.g. "SEMIANNUAL"
+  signedDate      DateTime?
+  annexes         Annex[]
+  documents       Document[]
+  createdAt       DateTime   @default(now())
+  deletedAt       DateTime?
+  purgeAfter      DateTime?
+  purgedAt        DateTime?
+}
+
+model Annex {
+  id         String         @id @default(cuid())
+  contract   MasterContract @relation(fields: [contractId], references: [id])
+  contractId String
+  number     Int // unique per contract
+  annexDate  DateTime
+  works      Work[]
+  documents  Document[]
+  createdAt  DateTime       @default(now())
+  deletedAt  DateTime?
+  purgeAfter DateTime?
+  purgedAt   DateTime?
+
+  @@unique([contractId, number])
+}
+
+model Work {
+  id         String     @id @default(cuid())
+  title      String
+  status     WorkStatus @default(PENDING_ANNEX)
+  rightsAxis RightsAxis @default(BOTH)
+  annex      Annex?     @relation(fields: [annexId], references: [id])
+  annexId    String?
+  credits    Credit[]
+  createdAt  DateTime   @default(now())
+  deletedAt  DateTime?
+  purgeAfter DateTime?
+  purgedAt   DateTime?
+}
+
+model Credit {
+  id     String     @id @default(cuid())
+  work   Work       @relation(fields: [workId], references: [id])
+  workId String
+  role   CreditRole
+  name   String
+}
+
+model Document {
+  id          String          @id @default(cuid())
+  filename    String
+  storagePath String // local disk / volume path; sensitive
+  status      DocStatus       @default(DRAFT)
+  ocrText     String?         @db.Text // extracted searchable text
+  contract    MasterContract? @relation(fields: [contractId], references: [id])
+  contractId  String?
+  annex       Annex?          @relation(fields: [annexId], references: [id])
+  annexId     String?
+  createdAt   DateTime        @default(now())
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
+  purgedAt    DateTime?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String // CREATE|UPDATE|DELETE|RESTORE|PURGE
+  entity    String // "Client" | "MasterContract" | ...
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+}

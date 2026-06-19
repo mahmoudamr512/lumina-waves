@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: lumina, POSTGRES_PASSWORD: lumina, POSTGRES_DB: lumina }
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+  meili:
+    image: getmeili/meilisearch:v1.10
+    environment: { MEILI_MASTER_KEY: devkey }
+    ports: ["7700:7700"]
+    volumes: ["meili:/meili_data"]
+volumes: { pgdata: {}, meili: {} }
