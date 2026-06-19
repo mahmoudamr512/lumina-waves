@@ -16,7 +16,7 @@ type RawClientDelegate = {
   findMany: (args: Record<string, unknown>) => Promise<Array<Record<string, unknown>>>
   update: (args: Record<string, unknown>) => Promise<Record<string, unknown>>
 }
-const rawClient = (db.$includeDeleted as Record<string, unknown>).client as RawClientDelegate
+const rawClient = (db.$includeDeleted as unknown as Record<string, unknown>).client as RawClientDelegate
 
 test('soft-deleted client appears in trash and can be restored', async () => {
   const c = await createClient({ legalName: 'R', nationalId: `10000001${RUN}` })
