@@ -2,7 +2,7 @@ import { PrismaClient } from '@/generated/prisma/client'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
-const SOFT_MODELS = ['User', 'Client', 'MasterContract', 'Annex', 'Work', 'Document'] as const
+const SOFT_MODELS = ['User', 'Client', 'MasterContract', 'Annex', 'Work', 'Document', 'Release', 'Folder'] as const
 type SoftModel = (typeof SOFT_MODELS)[number]
 
 // Map from PascalCase model name to camelCase Prisma delegate key.
@@ -13,6 +13,8 @@ const SOFT_MODEL_DELEGATE: Record<SoftModel, keyof typeof base> = {
   Annex: 'annex',
   Work: 'work',
   Document: 'document',
+  Release: 'release',
+  Folder: 'folder',
 }
 
 function isSoftModel(model: string): model is SoftModel {

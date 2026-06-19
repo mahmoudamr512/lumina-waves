@@ -73,6 +73,30 @@ export async function getClientTree(id: string) {
           documents: { where: { deletedAt: null } },
         },
       },
+      releases: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          works: {
+            where: { deletedAt: null },
+            include: { credits: true },
+          },
+        },
+      },
+      folders: {
+        where: { deletedAt: null, parentId: null },
+        orderBy: { name: 'asc' },
+        include: {
+          documents: { where: { deletedAt: null } },
+          children: {
+            where: { deletedAt: null },
+            orderBy: { name: 'asc' },
+            include: {
+              documents: { where: { deletedAt: null } },
+            },
+          },
+        },
+      },
     },
   })
   if (!row) return null
@@ -88,7 +112,7 @@ export async function getClientTree(id: string) {
     }))
     return { ...redactedContract, annexes, documents }
   })
-  return { ...redactedClient, contracts, role }
+  return { ...redactedClient, contracts, releases: row.releases, folders: row.folders, role }
 }
 
 export async function softDeleteClient(id: string) {

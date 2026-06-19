@@ -51,6 +51,17 @@ enum CreditRole {
   PRODUCER
 }
 
+enum ReleaseType {
+  SINGLE
+  EP
+  ALBUM
+}
+
+enum ReleaseStatus {
+  PLANNED
+  RELEASED
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -71,6 +82,8 @@ model Client {
   address    String?
   phone      String?
   contracts  MasterContract[]
+  releases   Release[]
+  folders    Folder[]
   createdAt  DateTime         @default(now())
   deletedAt  DateTime?
   purgeAfter DateTime?
@@ -122,6 +135,8 @@ model Work {
   rightsAxis RightsAxis @default(BOTH)
   annex      Annex?     @relation(fields: [annexId], references: [id])
   annexId    String?
+  release    Release?   @relation(fields: [releaseId], references: [id])
+  releaseId  String?
   credits    Credit[]
   createdAt  DateTime   @default(now())
   deletedAt  DateTime?
@@ -147,10 +162,42 @@ model Document {
   contractId  String?
   annex       Annex?          @relation(fields: [annexId], references: [id])
   annexId     String?
+  folder      Folder?         @relation(fields: [folderId], references: [id])
+  folderId    String?
   createdAt   DateTime        @default(now())
   deletedAt   DateTime?
   purgeAfter  DateTime?
   purgedAt    DateTime?
+}
+
+model Release {
+  id          String        @id @default(cuid())
+  client      Client        @relation(fields: [clientId], references: [id])
+  clientId    String
+  title       String
+  type        ReleaseType   @default(SINGLE)
+  releaseDate DateTime?
+  status      ReleaseStatus @default(PLANNED)
+  works       Work[]
+  createdAt   DateTime      @default(now())
+  deletedAt   DateTime?
+  purgeAfter  DateTime?
+  purgedAt    DateTime?
+}
+
+model Folder {
+  id         String     @id @default(cuid())
+  client     Client     @relation(fields: [clientId], references: [id])
+  clientId   String
+  parent     Folder?    @relation("FolderTree", fields: [parentId], references: [id])
+  parentId   String?
+  children   Folder[]   @relation("FolderTree")
+  name       String
+  documents  Document[]
+  createdAt  DateTime   @default(now())
+  deletedAt  DateTime?
+  purgeAfter DateTime?
+  purgedAt   DateTime?
 }
 
 model AuditLog {
