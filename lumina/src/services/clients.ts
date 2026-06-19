@@ -50,6 +50,47 @@ export async function updateClient(
   return redactSensitive(u.role, 'Client', after)
 }
 
+export async function getClientTree(id: string) {
+  const u = await requireUser('read', 'Client')
+  const row = await db.client.findUnique({
+    where: { id },
+    include: {
+      contracts: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          annexes: {
+            where: { deletedAt: null },
+            orderBy: { number: 'asc' },
+            include: {
+              works: {
+                where: { deletedAt: null },
+                include: { credits: true },
+              },
+              documents: { where: { deletedAt: null } },
+            },
+          },
+          documents: { where: { deletedAt: null } },
+        },
+      },
+    },
+  })
+  if (!row) return null
+  const role = u.role
+  const redactedClient = redactSensitive(role, 'Client', row)
+  const contracts = row.contracts.map((c) => {
+    const redactedContract = redactSensitive(role, 'MasterContract', c)
+    const documents = c.documents.map((d) => redactSensitive(role, 'Document', d))
+    const annexes = c.annexes.map((a) => ({
+      ...a,
+      works: a.works,
+      documents: a.documents.map((d) => redactSensitive(role, 'Document', d)),
+    }))
+    return { ...redactedContract, annexes, documents }
+  })
+  return { ...redactedClient, contracts, role }
+}
+
 export async function softDeleteClient(id: string) {
   const u = await requireUser('delete', 'Client')
   const before = await db.client.findUnique({ where: { id } })
