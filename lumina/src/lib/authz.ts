@@ -30,10 +30,10 @@ const SENSITIVE: Partial<Record<Entity, string[]>> = {
   MasterContract: ['revenueShareBps','minPayoutCents'],
   Document: ['storagePath'],
 }
-export function redactSensitive<T extends Record<string, any>>(role: Role, entity: Entity, row: T): T {
+export function redactSensitive<T extends Record<string, unknown>>(role: Role, entity: Entity, row: T): T {
   // Fail-closed: redact for ANY role NOT in the explicit allowlist
   if (CAN_SEE_SENSITIVE.includes(role)) return row
-  const result = { ...row } as T
-  for (const f of SENSITIVE[entity] ?? []) if (f in result) (result as any)[f] = null
-  return result
+  const result = { ...row } as Record<string, unknown>
+  for (const f of SENSITIVE[entity] ?? []) if (f in result) result[f] = null
+  return result as T
 }

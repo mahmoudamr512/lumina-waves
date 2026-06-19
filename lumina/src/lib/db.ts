@@ -46,11 +46,21 @@ export const db = base.$extends({
         return query(args)
       },
       async aggregate({ model, args, query }) {
-        if (isSoftModel(model)) (args as any).where = { ...(args as any).where, deletedAt: null }
+        if (isSoftModel(model)) {
+          // Prisma's aggregate/groupBy args types don't expose `where` generically — dynamic cast required.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const a = args as any
+          a.where = { ...a.where, deletedAt: null }
+        }
         return query(args)
       },
       async groupBy({ model, args, query }) {
-        if (isSoftModel(model)) (args as any).where = { ...(args as any).where, deletedAt: null }
+        if (isSoftModel(model)) {
+          // Same as aggregate: generic groupBy args lack a typed `where` property.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const a = args as any
+          a.where = { ...a.where, deletedAt: null }
+        }
         return query(args)
       },
 
@@ -71,18 +81,22 @@ export const db = base.$extends({
       async findUnique({ model, args, query }) {
         if (!isSoftModel(model)) return query(args)
 
-        const { needsStrip, patchedArgs } = patchSelectForDeletedAt(args)
-        const row = await query(patchedArgs)
-        if ((row as any)?.deletedAt) return null
-        if (needsStrip) delete (row as any)?.deletedAt
+        const { needsStrip, patchedArgs } = patchSelectForDeletedAt(args as FindUniqueArgs)
+        const row = await query(patchedArgs as typeof args)
+        // Cast to access `deletedAt` that was injected by patchSelectForDeletedAt above.
+        const record = row as Record<string, unknown> | null
+        if (record?.deletedAt) return null
+        if (needsStrip && record) delete record.deletedAt
         return row
       },
       async findUniqueOrThrow({ model, args, query }) {
         if (!isSoftModel(model)) return query(args)
 
-        const { needsStrip, patchedArgs } = patchSelectForDeletedAt(args)
-        const row = await query(patchedArgs)
-        if ((row as any)?.deletedAt) {
+        const { needsStrip, patchedArgs } = patchSelectForDeletedAt(args as FindUniqueArgs)
+        const row = await query(patchedArgs as typeof args)
+        // Cast to access `deletedAt` that was injected by patchSelectForDeletedAt above.
+        const record = row as Record<string, unknown>
+        if (record?.deletedAt) {
           // Throw P2025 so callers mapping Prisma not-found errors to HTTP 404
           // see a PrismaClientKnownRequestError with code 'P2025', not a plain Error
           throw new PrismaClientKnownRequestError('Record not found (soft-deleted)', {
@@ -90,7 +104,7 @@ export const db = base.$extends({
             clientVersion: '0.0.0',
           })
         }
-        if (needsStrip) delete (row as any)?.deletedAt
+        if (needsStrip) delete record.deletedAt
         return row
       },
     },
@@ -108,7 +122,8 @@ export const db = base.$extends({
 
     async $softDelete(model: string, id: string, purgeAfter: Date) {
       if (!isSoftModel(model)) throw new Error(`model not soft-deletable: ${model}`)
-      const delegate = base[SOFT_MODEL_DELEGATE[model as SoftModel]] as any
+      // Dynamic delegate access by camelCase key — Prisma client shape can't be statically indexed.
+      const delegate = base[SOFT_MODEL_DELEGATE[model as SoftModel]] as { update: (args: unknown) => Promise<unknown> }
       return delegate.update({
         where: { id },
         data: { deletedAt: new Date(), purgeAfter },
@@ -119,12 +134,19 @@ export const db = base.$extends({
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+// Typed shape for findUnique/findUniqueOrThrow args — only the fields we inspect.
+type FindUniqueArgs = {
+  select?: Record<string, unknown>
+  omit?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 /**
  * Ensures `deletedAt` is included in the query for the fail-closed
  * findUnique/findUniqueOrThrow check, regardless of the caller's
  * `select` or `omit`. Returns a flag so we can strip it afterwards.
  */
-function patchSelectForDeletedAt(args: any): { needsStrip: boolean; patchedArgs: any } {
+function patchSelectForDeletedAt(args: FindUniqueArgs): { needsStrip: boolean; patchedArgs: FindUniqueArgs } {
   if (args.select) {
     const callerWantsDeletedAt = Boolean(args.select.deletedAt)
     if (!callerWantsDeletedAt) {
@@ -135,8 +157,9 @@ function patchSelectForDeletedAt(args: any): { needsStrip: boolean; patchedArgs:
     }
   }
   if (args.omit) {
-    // Remove deletedAt from omit so the field comes back for our check
-    const { deletedAt: _removed, ...restOmit } = args.omit
+    // Remove deletedAt from omit so the field comes back for our check; destructured to discard it.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { deletedAt: _deletedAt, ...restOmit } = args.omit
     const strippedOmit = Object.keys(restOmit).length ? restOmit : undefined
     return {
       needsStrip: true,
