@@ -1,3 +1,23 @@
+/**
+ * proxy.ts — Next.js 16 Proxy (formerly Middleware)
+ *
+ * This file uses Next.js 16's `proxy.ts` file convention. In Next 16, the
+ * Edge runtime interceptor was renamed from "Middleware" to "Proxy" — the
+ * entry-point file is `proxy.ts` (or `proxy.js`) and the exported function
+ * must be named `proxy`. See the official docs:
+ *   app/api-reference/file-conventions/proxy
+ * The build output confirms this with: ƒ Proxy (Middleware).
+ *
+ * Do NOT rename this file to middleware.ts — that would break the request
+ * gate under Next 16.
+ *
+ * IMPORTANT: This proxy performs an OPTIMISTIC auth redirect for UX only
+ * (redirect unauthenticated users to /login before they see a flash of
+ * protected UI). It is NOT the authoritative authorization boundary.
+ * Authoritative enforcement happens server-side in every service via
+ * `requireUser()` (src/lib/auth.ts), which checks the session and RBAC
+ * policy on every request, independent of what this proxy does.
+ */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'

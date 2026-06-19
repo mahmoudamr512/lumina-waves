@@ -8,6 +8,16 @@ import { AuthzError } from '@/lib/errors'
 export { hashPassword, verifyPassword }
 export { AuthzError }
 
+/**
+ * A real bcrypt hash (cost 12) of a throwaway string used to keep the
+ * credential-check path constant-time even when no user is found.
+ * Running verifyPassword against this will always return false.
+ * It is defined here once, at module load, so it is never recomputed per
+ * request.
+ */
+const DUMMY_PASSWORD_HASH =
+  '$2b$12$srCT42X/zHlNtkThsUpXKOW/WjaSKkEF1CZmFWnWW/bcdylmnWNZO'
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: 'jwt' },
   providers: [
@@ -15,7 +25,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: { email: {}, password: {} },
       async authorize(c) {
         const user = await db.user.findUnique({ where: { email: String(c?.email) } })
-        if (!user || !(await verifyPassword(String(c?.password), user.passwordHash))) return null
+        // Always run verifyPassword — even when no user is found — so both the
+        // "user not found" and "wrong password" paths take similar wall-clock
+        // time and do not leak which condition triggered via a timing side-channel.
+        const hash = user?.passwordHash ?? DUMMY_PASSWORD_HASH
+        const ok = await verifyPassword(String(c?.password), hash)
+        if (!user || !ok) return null
         return { id: user.id, email: user.email, name: user.name, role: user.role }
       },
     }),
