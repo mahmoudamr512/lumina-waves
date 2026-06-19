@@ -1,11 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { AuthzError } from '@/lib/errors'
 import { writeAudit } from '@/lib/audit'
 import { renderContract } from '@/templates/contracts'
 import { renderPdf } from '@/lib/pdf'
+import { queues } from '@/lib/queue'
 
 const STORAGE = process.env.STORAGE_DIR ?? './.storage'
 
@@ -81,5 +83,58 @@ export async function markExecuted(documentId: string, signedFilePath: string) {
     after: { status: 'EXECUTED', storagePath: signedFilePath },
   })
 
+  return doc
+}
+
+export async function uploadDocument(input: {
+  buffer: Buffer
+  filename: string
+  contractId?: string
+  annexId?: string
+}) {
+  const u = await requireUser('create', 'Document')
+  const storageDir = path.resolve(STORAGE)
+  await mkdir(storageDir, { recursive: true })
+
+  // Derive a safe on-disk filename from a server-generated UUID + sanitised extension.
+  // The user-supplied filename is NEVER used as part of the on-disk path.
+  const rawExt = path.extname(path.basename(input.filename))
+  const safeExt = /^\.[a-zA-Z0-9]{1,10}$/.test(rawExt) ? rawExt : ''
+  const onDiskName = randomUUID() + safeExt
+  const storagePath = path.join(storageDir, onDiskName)
+
+  // Defense-in-depth: assert the resolved path is still inside storageDir.
+  const resolvedStorage = path.resolve(storageDir)
+  const resolvedPath = path.resolve(storagePath)
+  if (!resolvedPath.startsWith(resolvedStorage + path.sep) && resolvedPath !== resolvedStorage) {
+    throw new Error('Path traversal detected')
+  }
+
+  // Sanitise the original filename for metadata / display use only.
+  const safeDisplayName = input.filename.replace(/[\x00-\x1f\x7f]/g, '').trim() || 'upload'
+
+  await writeFile(storagePath, input.buffer)
+  const doc = await db.document.create({
+    data: {
+      filename: safeDisplayName,
+      storagePath,
+      status: 'EXECUTED',
+      contractId: input.contractId,
+      annexId: input.annexId,
+    },
+  })
+  await writeAudit({
+    actorId: u.id,
+    action: 'CREATE',
+    entity: 'Document',
+    entityId: doc.id,
+    after: { filename: safeDisplayName },
+  })
+  // Best-effort OCR enqueue — Redis outage must NOT fail the upload
+  try {
+    await queues.ocr.add('ocr', { documentId: doc.id, filePath: storagePath })
+  } catch (err) {
+    console.warn('[uploadDocument] OCR enqueue failed (best-effort):', err)
+  }
   return doc
 }
