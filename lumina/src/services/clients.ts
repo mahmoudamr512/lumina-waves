@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth'
 import { writeAudit } from '@/lib/audit'
 import { redactSensitive } from '@/lib/authz'
 import { queues } from '@/lib/queue'
+import { escapeHtml } from '@/templates/contracts/_layout'
 
 export async function createClient(input: {
   legalName: string
@@ -66,10 +67,14 @@ export async function softDeleteClient(id: string) {
       process.env.MAIL_FROM ??
       ''
     if (alertTo) {
+      // Escape every interpolated value (id is a stored cuid; name is user-supplied)
+      // before placing it in email HTML to prevent HTML/script injection.
+      const safeId = escapeHtml(before?.id ?? id)
+      const safeName = escapeHtml(before?.stageName ?? before?.legalName ?? '')
       await queues.mail.add('mail', {
         to: alertTo,
         subject: 'حذف عنصر — قابل للاسترجاع خلال 3 أيام',
-        html: `<p>تم حذف عميل (ID: ${id}) وهو قابل للاسترجاع لمدة 3 أيام.</p>`,
+        html: `<p>تم حذف العميل ${safeName} (المعرّف: ${safeId}) وهو قابل للاسترجاع لمدة 3 أيام.</p>`,
       })
     }
   } catch (err) {
