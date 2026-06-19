@@ -11,3 +11,8 @@ test('unifies taa marbuta and yaa, strips tatweel', () => {
 test('folds arabic-indic digits', () => {
   expect(normalizeArabic('٢٠٢٦')).toBe('2026')
 })
+test('folds waw with hamza (ؤ→و) and yaa with hamza (ئ→ي)', () => {
+  // ؤ (U+0624) → و and ئ (U+0626) → ي
+  expect(normalizeArabic('مؤسسة')).toBe('موسسه')   // ؤ→و, ة→ه
+  expect(normalizeArabic('هيئة')).toBe('هييه')      // ئ→ي, ة→ه
+})
