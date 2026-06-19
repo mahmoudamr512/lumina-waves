@@ -58,4 +58,21 @@ export async function softDeleteClient(id: string) {
   try { await queues.drive.add('backup', { clientId: id }) } catch (err) {
     console.warn('[softDeleteClient] Drive enqueue failed (best-effort):', err)
   }
+  // Best-effort admin alert — SMTP not required; failure must NOT fail the mutation
+  try {
+    const alertTo =
+      process.env.ALERT_EMAIL ??
+      process.env.SEED_ADMIN_EMAIL ??
+      process.env.MAIL_FROM ??
+      ''
+    if (alertTo) {
+      await queues.mail.add('mail', {
+        to: alertTo,
+        subject: 'حذف عنصر — قابل للاسترجاع خلال 3 أيام',
+        html: `<p>تم حذف عميل (ID: ${id}) وهو قابل للاسترجاع لمدة 3 أيام.</p>`,
+      })
+    }
+  } catch (err) {
+    console.warn('[softDeleteClient] Mail enqueue failed (best-effort):', err)
+  }
 }
