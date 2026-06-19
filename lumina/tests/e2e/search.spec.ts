@@ -39,8 +39,8 @@ test('upload: login → upload fixture → appears in documents list', async ({ 
   // Should redirect to /documents
   await expect(page).toHaveURL(/\/documents$/, { timeout: 20_000 })
 
-  // The uploaded filename should appear in the list
-  await expect(page.getByText('sample.pdf')).toBeVisible()
+  // The uploaded filename should appear in the list (may have multiple entries from prior runs)
+  await expect(page.getByText('sample.pdf').first()).toBeVisible()
 })
 
 test('search: indexed document appears in search results', async ({ page }) => {
