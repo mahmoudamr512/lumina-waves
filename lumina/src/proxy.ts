@@ -23,9 +23,15 @@ import type { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 
 // Public paths that do not require authentication
+// Prefix-public paths (these and anything under them are open).
 const PUBLIC_PATHS = ['/login', '/api/auth']
+// Exact-public paths (open only at the exact path). The "/" landing shows the
+// branded splash + login CTA; logged-in users are forwarded to /clients by the
+// page itself.
+const PUBLIC_EXACT = ['/']
 
 function isPublic(pathname: string): boolean {
+  if (PUBLIC_EXACT.includes(pathname)) return true
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
 }
 
