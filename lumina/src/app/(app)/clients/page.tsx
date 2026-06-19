@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
 import { listClients } from '@/services/clients'
@@ -21,7 +22,8 @@ export const dynamic = 'force-dynamic'
  */
 export default async function ClientsPage() {
   const session = await auth()
-  const role = session!.user.role
+  if (!session?.user) redirect('/login')
+  const role = session.user.role
   const canCreate = can(role, 'create', 'Client')
 
   const clients = await listClients()

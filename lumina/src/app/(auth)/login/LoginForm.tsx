@@ -14,7 +14,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/clients'
+  const raw = searchParams.get('callbackUrl') ?? ''
+  // Security: only accept internal paths — must start with '/' but not '//' (protocol-relative)
+  const callbackUrl = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/clients'
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)

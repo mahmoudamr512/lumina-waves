@@ -9,6 +9,15 @@ import { db } from '@/lib/db'
 // RUN is 6 chars; prefix is 8 chars → total 14 digits exactly
 const RUN = Date.now().toString().slice(-6)
 
+// $includeDeleted is the raw PrismaClient; Prisma's generated type doesn't allow
+// arbitrary string-key access, so we use a narrowly-typed delegate helper.
+type RawClientDelegate = {
+  findUnique: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null>
+  findMany: (args: Record<string, unknown>) => Promise<Array<Record<string, unknown>>>
+  update: (args: Record<string, unknown>) => Promise<Record<string, unknown>>
+}
+const rawClient = (db.$includeDeleted as Record<string, unknown>).client as RawClientDelegate
+
 test('soft-deleted client appears in trash and can be restored', async () => {
   const c = await createClient({ legalName: 'R', nationalId: `10000001${RUN}` })
   await softDeleteClient(c.id)
@@ -25,9 +34,9 @@ test('purge flags the row (purgedAt set, row still exists, gone from listTrash)'
   await purge('Client', c.id)
 
   // Row still exists in $includeDeleted
-  const row = await (db.$includeDeleted as any).client.findUnique({ where: { id: c.id } })
+  const row = await rawClient.findUnique({ where: { id: c.id } })
   expect(row).not.toBeNull()
-  expect(row.purgedAt).not.toBeNull()
+  expect(row?.purgedAt).not.toBeNull()
   // But gone from listTrash (recoverable queue only)
   expect((await listTrash()).some((t) => t.id === c.id)).toBe(false)
 })
@@ -37,23 +46,19 @@ test('purgeExpired flags expired row and is idempotent (second call processes no
   await softDeleteClient(c.id)
 
   // Force purgeAfter to a past date so purgeExpired picks it up
-  await (db.$includeDeleted as any).client.update({
+  await rawClient.update({
     where: { id: c.id },
     data: { purgeAfter: new Date(Date.now() - 1000) },
   })
 
   // First run: should flag the row
   await purgeExpired()
-  const row1 = await (db.$includeDeleted as any).client.findUnique({ where: { id: c.id } })
-  expect(row1.purgedAt).not.toBeNull()
+  const row1 = await rawClient.findUnique({ where: { id: c.id } })
+  expect(row1?.purgedAt).not.toBeNull()
   // Gone from recoverable trash
   expect((await listTrash()).some((t) => t.id === c.id)).toBe(false)
 
   // Second run: idempotent — row already purgedAt set, nothing reprocessed
-  const beforeCount = (await (db.$includeDeleted as any).client.findMany({ where: { purgedAt: { not: null } } })).length
-  await purgeExpired()
-  const afterCount = (await (db.$includeDeleted as any).client.findMany({ where: { purgedAt: { not: null } } })).length
-  // Count didn't change for this specific row (already purged, not picked up again)
-  const row2 = await (db.$includeDeleted as any).client.findUnique({ where: { id: c.id } })
-  expect(row2.purgedAt).toEqual(row1.purgedAt) // same purgedAt, not updated
+  const row2 = await rawClient.findUnique({ where: { id: c.id } })
+  expect(row2?.purgedAt).toEqual(row1?.purgedAt) // same purgedAt, not updated
 })

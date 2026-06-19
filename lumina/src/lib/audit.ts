@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { Prisma } from '@/generated/prisma/client'
 
 export type AuditInput = {
   actorId: string
@@ -9,6 +10,10 @@ export type AuditInput = {
   after?: unknown
 }
 
+// Prisma's nullable Json? field accepts `NullableJsonNullValueInput | InputJsonValue`.
+// We cast `unknown` to this union so callers can pass arbitrary serialisable data.
+type NullableJson = Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue
+
 export async function writeAudit(i: AuditInput) {
   await db.auditLog.create({
     data: {
@@ -16,8 +21,8 @@ export async function writeAudit(i: AuditInput) {
       action: i.action,
       entity: i.entity,
       entityId: i.entityId,
-      before: (i.before ?? null) as any,
-      after: (i.after ?? null) as any,
+      before: (i.before ?? Prisma.JsonNull) as NullableJson,
+      after: (i.after ?? Prisma.JsonNull) as NullableJson,
     },
   })
 }

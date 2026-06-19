@@ -5,14 +5,28 @@ import { writeAudit } from '@/lib/audit'
 const MODELS = ['Client', 'MasterContract', 'Annex', 'Work', 'Document'] as const
 type Model = (typeof MODELS)[number]
 
-const accessor = (m: Model) => (db.$includeDeleted as any)[m[0].toLowerCase() + m.slice(1)]
+// $includeDeleted is the raw PrismaClient; we index it by delegate name (camelCase).
+// Prisma's client type doesn't allow arbitrary string indexing, so we narrow to
+// the minimum interface we use: findMany, findUnique, update.
+type SoftRow = { id: string; deletedAt: Date | null; purgeAfter: Date | null; purgedAt: Date | null }
+type PrismaDelegate = {
+  findMany: (args: Record<string, unknown>) => Promise<SoftRow[]>
+  findUnique: (args: Record<string, unknown>) => Promise<SoftRow | null>
+  update: (args: Record<string, unknown>) => Promise<SoftRow>
+}
+const accessor = (m: Model): PrismaDelegate =>
+  (db.$includeDeleted as unknown as Record<string, unknown>)[m[0].toLowerCase() + m.slice(1)] as PrismaDelegate
 
 export async function listTrash() {
   await requireUser('read', 'Trash')
   const out: { id: string; entity: Model; deletedAt: Date; purgeAfter: Date | null }[] = []
   for (const m of MODELS) {
     const rows = await accessor(m).findMany({ where: { deletedAt: { not: null }, purgedAt: null } })
-    for (const r of rows) out.push({ id: r.id, entity: m, deletedAt: r.deletedAt, purgeAfter: r.purgeAfter })
+    for (const r of rows) {
+      // The where-clause above guarantees deletedAt is not null; the type is narrowed here.
+      if (!r.deletedAt) continue
+      out.push({ id: r.id, entity: m, deletedAt: r.deletedAt, purgeAfter: r.purgeAfter })
+    }
   }
   return out
 }

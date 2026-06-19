@@ -16,7 +16,8 @@ export const metadata = {
  */
 export default async function NewClientPage() {
   const session = await auth()
-  if (!can(session!.user.role, 'create', 'Client')) {
+  if (!session?.user) redirect('/login')
+  if (!can(session.user.role, 'create', 'Client')) {
     redirect('/clients')
   }
 
