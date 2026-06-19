@@ -1,86 +1,38 @@
-'use client'
+import { Suspense } from 'react'
+import { AmbientBackground } from '@/components/layout'
+import { LuminaLogo } from '@/components/brand'
+import { FadeIn } from '@/components/motion'
+import { LoginForm } from './LoginForm'
 
-import { signIn } from 'next-auth/react'
-import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+export const metadata = {
+  title: 'تسجيل الدخول | Lumina Waves',
+}
 
+/**
+ * Login screen — branded, on the ink background with an ambient backdrop.
+ * The interactive form lives in the `LoginForm` client component; this server
+ * component owns only the chrome and brand lockup. The form reads `callbackUrl`
+ * from the URL, so it is wrapped in <Suspense> (useSearchParams requirement).
+ */
 export default function LoginPage() {
-  const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    const form = new FormData(e.currentTarget)
-    const result = await signIn('credentials', {
-      email: form.get('email') as string,
-      password: form.get('password') as string,
-      redirect: false,
-    })
-
-    setLoading(false)
-
-    if (result?.error) {
-      setError('بريد إلكتروني أو كلمة مرور غير صحيحة')
-    } else {
-      router.push('/')
-      router.refresh()
-    }
-  }
-
   return (
-    <main className="flex min-h-screen items-center justify-center bg-ink">
-      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border-elevation bg-surface p-8 shadow-xl">
-        <h1 className="text-center font-cinzel text-2xl font-semibold text-foreground">
-          Lumina Waves
-        </h1>
+    <main className="relative flex min-h-screen items-center justify-center px-4 py-12">
+      <AmbientBackground />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="email" className="block text-sm text-muted">
-              البريد الإلكتروني
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="w-full rounded-lg border border-border-elevation bg-ink px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-gold-500"
-              placeholder="admin@luminawaves.com"
-            />
+      <FadeIn className="w-full max-w-sm" y={16} duration={0.7}>
+        <div className="flex flex-col items-center gap-8 rounded-2xl border border-border-elevation bg-surface/80 p-8 shadow-2xl backdrop-blur-sm sm:p-10">
+          <LuminaLogo layout="stacked" size={96} title="Lumina Waves" />
+
+          <div className="w-full space-y-1 text-center">
+            <h1 className="text-lg font-medium text-foreground">تسجيل الدخول</h1>
+            <p className="text-sm text-muted">نظام إدارة عمليات لومينا ويفز</p>
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="password" className="block text-sm text-muted">
-              كلمة المرور
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="w-full rounded-lg border border-border-elevation bg-ink px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-gold-500"
-            />
-          </div>
-
-          {error && (
-            <p className="text-center text-sm text-red-400">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-gold-600 px-4 py-2 text-sm font-medium text-ink transition hover:bg-gold-500 disabled:opacity-50"
-          >
-            {loading ? '…' : 'تسجيل الدخول'}
-          </button>
-        </form>
-      </div>
+          <Suspense fallback={<div className="h-48 w-full" aria-hidden="true" />}>
+            <LoginForm />
+          </Suspense>
+        </div>
+      </FadeIn>
     </main>
   )
 }
