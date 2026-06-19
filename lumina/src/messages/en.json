@@ -5,7 +5,8 @@
     "works": "Works",
     "documents": "Documents",
     "search": "Search",
-    "home": "Home"
+    "home": "Home",
+    "mainNav": "Main navigation"
   },
   "auth": {
     "signOut": "Sign out",

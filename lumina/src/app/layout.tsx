@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cinzel, Tajawal } from "next/font/google";
 import { cookies } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
-import { dirFor, defaultLocale } from "@/i18n";
+import { locales, dirFor, defaultLocale } from "@/i18n";
 import "./globals.css";
 
 // Display / Latin wordmark serif — Trajan-style. Used only for the wordmark + hero display.
@@ -36,7 +36,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
-  const locale = cookieStore.get("NEXT_LOCALE")?.value ?? defaultLocale;
+  const rawLocale = cookieStore.get("NEXT_LOCALE")?.value;
+  const locale = (locales as readonly string[]).includes(rawLocale ?? '') ? rawLocale! : defaultLocale;
   const messages = (await import(`@/messages/${locale}.json`)).default;
 
   return (
