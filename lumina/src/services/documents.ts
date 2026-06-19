@@ -36,12 +36,32 @@ export async function generateContractPdf(contractId: string) {
   })
   if (!k) throw new Error('contract not found')
 
+  const SETTLEMENT_AR: Record<string, string> = {
+    MONTHLY: 'شهرية',
+    QUARTERLY: 'ربع سنوية',
+    SEMIANNUAL: 'نصف سنوية',
+    ANNUAL: 'سنوية',
+  }
+  const dateAr = k.signedDate
+    ? new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(
+        k.signedDate,
+      )
+    : undefined
+
   const html = renderContract(k.grantType as Parameters<typeof renderContract>[0], {
-    party1Name: k.client.stageName ?? k.client.legalName,
+    party1Name: k.client.legalName,
+    party1StageName: k.client.stageName ?? undefined,
     party1NationalId: k.client.nationalId,
+    party1Address: k.client.address ?? undefined,
     territory: k.territory,
     termMonths: k.termMonths,
     coverage: k.coverage as string[],
+    revenueSharePct: k.revenueShareBps != null ? k.revenueShareBps / 100 : undefined,
+    minPayoutUsd: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
+    settlementFreqAr: k.settlementFreq ? SETTLEMENT_AR[k.settlementFreq] : undefined,
+    noticeDays: k.noticeDays,
+    contractDateAr: dateAr,
+    regNo: `${k.id.slice(-5).toUpperCase()} / ${(k.signedDate ?? k.createdAt).getFullYear()}`,
   })
 
   const buf = await renderPdf(html)

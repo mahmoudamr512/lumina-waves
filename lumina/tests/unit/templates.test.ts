@@ -14,8 +14,19 @@ test('exclusive license contract includes correct Arabic grant + moral-rights no
   expect(html).toContain('المزامنة') // coverage rendered in Arabic
 })
 
-test('renderAnnex includes works-table headers', () => {
+const ANNEX_BASE = {
+  number: 24,
+  masterDateAr: '12 سبتمبر 2018',
+  annexDateAr: 'الأحد 17 مايو 2026',
+  party1Name: 'أحمد علاء الدين محمد',
+  party1StageName: 'أحمد علاء',
+  party1NationalId: '28902102104713',
+  party1Address: 'الجيزة',
+}
+
+test('renderAnnex includes works-table headers and annex framing', () => {
   const html = renderAnnex({
+    ...ANNEX_BASE,
     works: [
       {
         titleAr: 'أغنية الوداع',
@@ -30,7 +41,8 @@ test('renderAnnex includes works-table headers', () => {
   expect(html).toContain('المطرب')
   expect(html).toContain('المؤلف')
   expect(html).toContain('الملحن')
-  expect(html).toContain('الموزع الموسيقي')
+  expect(html).toContain('الموزع')
+  expect(html).toContain('ملحق رقم (24)')
 })
 
 // ── HTML-injection guard tests ────────────────────────────────────────────────
@@ -81,6 +93,7 @@ test('renderContract escapes an unknown territory fallback value', () => {
 
 test('renderAnnex escapes malicious works-table fields — raw tags must not appear', () => {
   const html = renderAnnex({
+    ...ANNEX_BASE,
     works: [
       {
         titleAr: 'A & <b>B</b>',

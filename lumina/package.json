@@ -13,7 +13,8 @@
     "worker": "tsx src/workers/index.ts",
     "icons": "node scripts/generate-icons.mjs",
     "postinstall": "prisma generate",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "stamp": "tsx scripts/generate-stamp.mjs"
   },
   "dependencies": {
     "@fontsource/amiri": "^5.2.8",
