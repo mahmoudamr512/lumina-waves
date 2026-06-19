@@ -1,26 +1,55 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Lumina Waves design system — gold metallic on near-black.
+ * Tailwind v4 CSS-first config: tokens live in @theme (no tailwind.config.js).
+ */
+@theme {
+  /* Surfaces */
+  --color-ink: #0a0a0d; /* page background */
+  --color-ink-soft: #121217;
+  --color-surface: #16161c; /* cards */
+
+  /* Foreground */
+  --color-foreground: #ececee;
+  --color-muted: #9a9aa2;
+
+  /* Gold metallic scale */
+  --color-gold-50: #fbf3d9;
+  --color-gold-100: #f2e2b0;
+  --color-gold-200: #ecd698;
+  --color-gold-300: #e6c878;
+  --color-gold-400: #d4af37; /* primary */
+  --color-gold-500: #c9a24b;
+  --color-gold-600: #b8893a;
+  --color-gold-700: #8a6a2f;
+
+  /* Subtle elevation border */
+  --color-border-elevation: rgba(212, 175, 55, 0.14);
+
+  /* Fonts (variables provided by next/font on <html>) */
+  --font-sans: var(--font-tajawal);
+  --font-display: var(--font-cinzel);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* The reusable metallic gold gradient, applied to text via background-clip. */
+.text-gold-metallic {
+  background-image: linear-gradient(
+    135deg,
+    #8a6a2f 0%,
+    #e6c878 35%,
+    #fbf3d9 50%,
+    #d4af37 70%,
+    #8a6a2f 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ink);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
