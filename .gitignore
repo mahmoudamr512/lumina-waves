@@ -3,3 +3,4 @@ memory/
 .DS_Store
 node_modules/
 .env
+.superpowers/
