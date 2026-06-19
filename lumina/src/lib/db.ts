@@ -1,5 +1,5 @@
-import 'dotenv/config'
 import { PrismaClient } from '@/generated/prisma/client'
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const SOFT_MODELS = ['User', 'Client', 'MasterContract', 'Annex', 'Work', 'Document'] as const
@@ -83,8 +83,12 @@ export const db = base.$extends({
         const { needsStrip, patchedArgs } = patchSelectForDeletedAt(args)
         const row = await query(patchedArgs)
         if ((row as any)?.deletedAt) {
-          // Mimic Prisma's "not found" error so callers get the expected throw
-          throw new Error('Record not found (soft-deleted)')
+          // Throw P2025 so callers mapping Prisma not-found errors to HTTP 404
+          // see a PrismaClientKnownRequestError with code 'P2025', not a plain Error
+          throw new PrismaClientKnownRequestError('Record not found (soft-deleted)', {
+            code: 'P2025',
+            clientVersion: '0.0.0',
+          })
         }
         if (needsStrip) delete (row as any)?.deletedAt
         return row
