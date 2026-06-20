@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
 import { listClients } from '@/services/clients'
-import { LuminaWaveMark } from '@/components/brand'
+import { Breadcrumb, buttonClasses, EmptyState, IconClients, IconPlus } from '@/components/ui'
 import { FadeIn } from '@/components/motion'
 import { ClientsGrid, type ClientCard } from './ClientsGrid'
 
@@ -16,8 +16,8 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Clients list (RSC). Reads the session for RBAC, fetches the already
- * role-redacted client rows from the service, and renders a header + either a
- * tasteful empty state or an animated, responsive card grid. `nationalId` is
+ * role-redacted client rows from the service, and renders a breadcrumb + header
+ * + either an empty state or an animated, responsive card grid. `nationalId` is
  * null for OPERATIONS/VIEWER and is rendered gracefully downstream.
  */
 export default async function ClientsPage() {
@@ -27,7 +27,6 @@ export default async function ClientsPage() {
   const canCreate = can(role, 'create', 'Client')
 
   const clients = await listClients()
-  // Narrow to exactly the shape the UI needs (service already redacted).
   const cards: ClientCard[] = clients.map((c) => ({
     id: c.id,
     legalName: c.legalName,
@@ -37,58 +36,41 @@ export default async function ClientsPage() {
 
   return (
     <section className="space-y-8">
+      <Breadcrumb items={[{ label: 'نظرة عامة', href: '/overview' }, { label: 'العملاء' }]} />
+
       <FadeIn>
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border-elevation pb-5">
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
           <div className="space-y-1">
-            <h1 className="font-display text-3xl font-semibold text-gold-metallic">
-              العملاء
-            </h1>
+            <h1 className="font-display text-3xl font-semibold text-gold-metallic">العملاء</h1>
             <p className="text-sm text-muted">
-              {cards.length > 0
-                ? `${cards.length} عميل مسجّل`
-                : 'إدارة عملاء لومينا ويفز'}
+              {cards.length > 0 ? `${cards.length} عميل مسجّل` : 'إدارة عملاء لومينا ويفز'}
             </p>
           </div>
 
           {canCreate && (
-            <Link
-              href="/clients/new"
-              className="rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-200"
-            >
-              عميل جديد
+            <Link href="/clients/new" className={buttonClasses('primary')}>
+              <IconPlus className="h-4 w-4" /> عميل جديد
             </Link>
           )}
         </header>
       </FadeIn>
 
       {cards.length === 0 ? (
-        <EmptyState canCreate={canCreate} />
+        <EmptyState
+          icon={<IconClients className="h-6 w-6" />}
+          title="لا يوجد عملاء بعد"
+          body="ابدأ بإضافة أول عميل إلى النظام."
+          action={
+            canCreate ? (
+              <Link href="/clients/new" className={buttonClasses('primary')}>
+                <IconPlus className="h-4 w-4" /> عميل جديد
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
         <ClientsGrid clients={cards} />
       )}
     </section>
-  )
-}
-
-function EmptyState({ canCreate }: { canCreate: boolean }) {
-  return (
-    <FadeIn
-      delay={0.1}
-      className="flex flex-col items-center justify-center gap-5 rounded-2xl border border-dashed border-border-elevation py-20 text-center"
-    >
-      <LuminaWaveMark size={72} variant="gold" title="لا يوجد عملاء" />
-      <div className="space-y-1">
-        <p className="text-lg font-medium text-foreground">لا يوجد عملاء بعد</p>
-        <p className="text-sm text-muted">ابدأ بإضافة أول عميل إلى النظام.</p>
-      </div>
-      {canCreate && (
-        <Link
-          href="/clients/new"
-          className="rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-200"
-        >
-          عميل جديد
-        </Link>
-      )}
-    </FadeIn>
   )
 }

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Stagger, StaggerItem } from '@/components/motion'
+import { Card, CardBody, IconLock } from '@/components/ui'
 
 export interface ClientCard {
   id: string
@@ -12,11 +13,10 @@ export interface ClientCard {
 }
 
 /**
- * Responsive, animated grid of client cards. Each card is a link to the
- * client's tree detail page (/clients/[id]). Shows the stage name (falling
- * back to the legal name) prominently, the legal name as a subtitle, and the
- * national ID only when present — otherwise a subtle "مخفي" lock chip.
- * Animation is reduced-motion safe via Stagger.
+ * Responsive, animated grid of client cards. Each card links to the client hub
+ * (/clients/[id]). Shows the stage name (falling back to the legal name)
+ * prominently, the legal name as a subtitle, and the national ID only when
+ * present — otherwise a subtle locked chip. Reduced-motion safe via Stagger.
  */
 export function ClientsGrid({ clients }: { clients: ClientCard[] }) {
   return (
@@ -27,60 +27,40 @@ export function ClientsGrid({ clients }: { clients: ClientCard[] }) {
 
         return (
           <StaggerItem key={client.id}>
-            <Link
-              href={`/clients/${client.id}`}
-              className="block h-full rounded-2xl focus:outline-none focus:ring-2 focus:ring-gold-200"
-            >
-              <article className="group h-full rounded-2xl border border-border-elevation bg-surface/70 p-5 transition hover:border-gold-400/40 hover:bg-surface cursor-pointer">
-                <h2 className="truncate text-lg font-semibold text-foreground" title={title}>
-                  {title}
-                </h2>
-                {hasSubtitle && (
-                  <p className="mt-0.5 truncate text-sm text-muted" title={client.legalName}>
-                    {client.legalName}
-                  </p>
-                )}
-
-                <div className="mt-4 flex items-center justify-between border-t border-border-elevation pt-3">
-                  <span className="text-xs text-muted">الرقم القومي</span>
-                  {client.nationalId ? (
-                    <span dir="ltr" className="font-mono text-sm tabular-nums text-foreground">
-                      {client.nationalId}
-                    </span>
-                  ) : (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-xs text-muted"
-                      title="غير مصرّح لك بعرض هذه البيانات"
-                    >
-                      <LockIcon />
-                      مخفي
-                    </span>
+            <Link href={`/clients/${client.id}`} className="block h-full rounded-xl focus-ring">
+              <Card interactive className="h-full">
+                <CardBody>
+                  <h2 className="truncate text-lg font-semibold text-foreground" title={title}>
+                    {title}
+                  </h2>
+                  {hasSubtitle && (
+                    <p className="mt-0.5 truncate text-sm text-muted" title={client.legalName}>
+                      {client.legalName}
+                    </p>
                   )}
-                </div>
-              </article>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
+                    <span className="text-xs text-muted">الرقم القومي</span>
+                    {client.nationalId ? (
+                      <span dir="ltr" className="font-mono text-sm tabular-nums text-foreground">
+                        {client.nationalId}
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-xs text-muted"
+                        title="غير مصرّح لك بعرض هذه البيانات"
+                      >
+                        <IconLock className="h-3 w-3" />
+                        مخفي
+                      </span>
+                    )}
+                  </div>
+                </CardBody>
+              </Card>
             </Link>
           </StaggerItem>
         )
       })}
     </Stagger>
-  )
-}
-
-function LockIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="11"
-      height="11"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
   )
 }
