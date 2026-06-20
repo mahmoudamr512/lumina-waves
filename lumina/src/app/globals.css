@@ -27,6 +27,23 @@
   /* Subtle elevation border */
   --color-border-elevation: rgba(212, 175, 55, 0.14);
 
+  /* Elevation surfaces (third level for popovers/modals/raised rows) */
+  --color-surface-raised: #1d1d24;
+
+  /* Text hierarchy (3 steps) — foreground/muted exist; add subtle */
+  --color-subtle: #6b6b73;
+
+  /* Standard line/border (stronger + neutral, for data density) */
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.14);
+
+  /* Semantic status palette (text + tint backgrounds via /N opacity) */
+  --color-neutral: #9a9aa2;
+  --color-info: #6aa9e9;
+  --color-success: #57b894;
+  --color-warning: #d9a23b;
+  --color-danger: #e06b6b;
+
   /* Fonts (variables provided by next/font on <html>) */
   --font-sans: var(--font-tajawal);
   --font-display: var(--font-cinzel);
@@ -46,6 +63,15 @@
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+}
+
+/* Consistent keyboard focus ring used by all interactive ui/ primitives. */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-gold-400);
+  outline-offset: 2px;
 }
 
 body {
