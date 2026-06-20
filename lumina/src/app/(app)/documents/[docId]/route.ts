@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createReadStream } from 'node:fs'
-import { stat } from 'node:fs/promises'
+import { realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
@@ -53,24 +53,27 @@ export async function GET(
     return new NextResponse('Not Found', { status: 404 })
   }
 
-  // Defense-in-depth: never serve a path outside the storage root.
+  // Defense-in-depth: never serve a path outside the storage root, and resolve
+  // symlinks (realpath) so a symlinked file can't escape the storage directory.
   const resolved = path.resolve(doc.storagePath)
   if (resolved !== STORAGE_ROOT && !resolved.startsWith(STORAGE_ROOT + path.sep)) {
     return new NextResponse('Not Found', { status: 404 })
   }
-
-  // Verify the file exists on disk
+  let real: string
   try {
-    await stat(resolved)
+    real = await realpath(resolved)
   } catch {
     return new NextResponse('File Not Found', { status: 404 })
+  }
+  if (real !== STORAGE_ROOT && !real.startsWith(STORAGE_ROOT + path.sep)) {
+    return new NextResponse('Not Found', { status: 404 })
   }
 
   const contentType = contentTypeFor(doc.filename)
   const safeFilename = encodeURIComponent(doc.filename).replace(/%20/g, '+')
 
   // Stream the file using Node.js ReadStream → Web ReadableStream
-  const nodeStream = createReadStream(resolved)
+  const nodeStream = createReadStream(real)
   const webStream = new ReadableStream({
     start(controller) {
       nodeStream.on('data', (chunk) => {
