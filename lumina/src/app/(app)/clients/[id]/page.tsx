@@ -3,8 +3,11 @@ import { redirect, notFound } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
 import { getClientTree } from '@/services/clients'
+import { GRANT_TYPES } from '@/lib/rights'
+import { CREDIT_ROLE_AR, RELEASE_TYPE_AR } from '@/lib/labels'
 import { FadeIn } from '@/components/motion'
-import { Breadcrumb, Tabs, buttonClasses, IconLock, IconPlus } from '@/components/ui'
+import { Breadcrumb, buttonClasses, IconLock, IconPlus } from '@/components/ui'
+import { ClientHub, type ClientSearchItem } from './ClientHub'
 import { ContractsTab } from './_tabs/ContractsTab'
 import { ReleasesTab } from './_tabs/ReleasesTab'
 import { FoldersTab } from './_tabs/FoldersTab'
@@ -29,6 +32,100 @@ const TABS = [
   { key: 'folders', label: 'المجلدات' },
   { key: 'documents', label: 'المستندات' },
 ]
+
+/**
+ * Flatten the client tree into a searchable index for the within-client search:
+ * contracts, works, releases + tracks, documents (all levels), and folders.
+ * Each item links to where it lives.
+ */
+function buildSearchIndex(tree: ClientTree, clientId: string): ClientSearchItem[] {
+  const items: ClientSearchItem[] = []
+
+  for (const contract of tree.contracts) {
+    const grant = GRANT_TYPES[contract.grantType as keyof typeof GRANT_TYPES]?.ar ?? String(contract.grantType)
+    items.push({ id: String(contract.id), group: 'العقود', title: grant, href: `/contracts/${String(contract.id)}` })
+
+    for (const annex of contract.annexes) {
+      for (const work of annex.works) {
+        items.push({
+          id: String(work.id),
+          group: 'الأعمال',
+          title: work.title,
+          subtitle: work.credits.map((c) => CREDIT_ROLE_AR[c.role] ?? c.role).join('، ') || undefined,
+          href: `/works/${String(work.id)}`,
+        })
+      }
+      for (const doc of annex.documents) {
+        items.push({
+          id: String(doc.id),
+          group: 'المستندات',
+          title: String(doc.filename),
+          subtitle: `ملحق رقم ${annex.number}`,
+          href: `/documents/${String(doc.id)}`,
+          external: true,
+        })
+      }
+    }
+    for (const doc of contract.documents) {
+      items.push({
+        id: String(doc.id),
+        group: 'المستندات',
+        title: String(doc.filename),
+        subtitle: 'عقد رئيسي',
+        href: `/documents/${String(doc.id)}`,
+        external: true,
+      })
+    }
+  }
+
+  for (const release of tree.releases) {
+    items.push({
+      id: String(release.id),
+      group: 'الإصدارات',
+      title: release.title,
+      subtitle: RELEASE_TYPE_AR[release.type] ?? String(release.type),
+      href: `/clients/${clientId}?tab=releases`,
+    })
+    for (const track of release.works) {
+      items.push({
+        id: String(track.id),
+        group: 'الإصدارات',
+        title: track.title,
+        subtitle: release.title,
+        href: `/clients/${clientId}?tab=releases`,
+      })
+    }
+  }
+
+  for (const folder of tree.folders) {
+    items.push({ id: String(folder.id), group: 'المجلدات', title: folder.name, href: `/clients/${clientId}?tab=folders` })
+    for (const doc of folder.documents) {
+      items.push({
+        id: String(doc.id),
+        group: 'المستندات',
+        title: String(doc.filename),
+        subtitle: `مجلد: ${folder.name}`,
+        href: `/documents/${String(doc.id)}`,
+        external: true,
+      })
+    }
+    for (const child of folder.children) {
+      items.push({ id: String(child.id), group: 'المجلدات', title: child.name, href: `/clients/${clientId}?tab=folders` })
+      for (const doc of child.documents) {
+        items.push({
+          id: String(doc.id),
+          group: 'المستندات',
+          title: String(doc.filename),
+          subtitle: `مجلد: ${folder.name} / ${child.name}`,
+          href: `/documents/${String(doc.id)}`,
+          external: true,
+        })
+      }
+    }
+  }
+
+  return items
+}
 
 /**
  * Client hub (RSC). A persistent header (identity + redaction state + primary
@@ -59,6 +156,7 @@ export default async function ClientDetailPage({
   const canAddRelease = can(role, 'create', 'Work')
   const title = tree.stageName ?? tree.legalName
   const active = TABS.some((t) => t.key === tab) ? tab! : 'contracts'
+  const searchItems = buildSearchIndex(tree, id)
 
   return (
     <section className="space-y-8">
@@ -97,23 +195,23 @@ export default async function ClientDetailPage({
         </header>
       </FadeIn>
 
-      <Tabs tabs={TABS} active={active} />
-
-      {active === 'contracts' && (
-        <ContractsTab
-          clientId={id}
-          contracts={tree.contracts}
-          canCreateContract={canCreateContract}
-          canGenerate={canGenerate}
-        />
-      )}
-      {active === 'releases' && (
-        <ReleasesTab clientId={id} releases={tree.releases} canAddRelease={canAddRelease} />
-      )}
-      {active === 'folders' && (
-        <FoldersTab clientId={id} folders={tree.folders} canAttach={canAttach} />
-      )}
-      {active === 'documents' && <DocumentsTab contracts={tree.contracts} folders={tree.folders} />}
+      <ClientHub active={active} tabs={TABS} items={searchItems}>
+        {active === 'contracts' && (
+          <ContractsTab
+            clientId={id}
+            contracts={tree.contracts}
+            canCreateContract={canCreateContract}
+            canGenerate={canGenerate}
+          />
+        )}
+        {active === 'releases' && (
+          <ReleasesTab clientId={id} releases={tree.releases} canAddRelease={canAddRelease} />
+        )}
+        {active === 'folders' && (
+          <FoldersTab clientId={id} folders={tree.folders} canAttach={canAttach} />
+        )}
+        {active === 'documents' && <DocumentsTab contracts={tree.contracts} folders={tree.folders} />}
+      </ClientHub>
     </section>
   )
 }

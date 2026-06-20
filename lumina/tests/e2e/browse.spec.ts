@@ -29,3 +29,25 @@ test('system-wide search finds a client and links to its hub', async ({ page }) 
   await page.getByText(legalName).click()
   await expect(page).toHaveURL(/\/clients\/[a-z0-9]+$/i, { timeout: 20_000 })
 })
+
+test('within-client search filters across the client and shows no-results', async ({ page }) => {
+  test.slow()
+  await login(page)
+  await createClient(page)
+  const clientUrl = page.url()
+
+  // Add a contract (default grant type is an exclusive licence → "ترخيص حصري").
+  await page.getByRole('link', { name: 'إضافة عقد' }).first().click()
+  await page.getByText('التوزيع الرقمي والبث التدفقي').click()
+  await page.getByRole('button', { name: 'حفظ العقد' }).click()
+  await expect(page).toHaveURL(/\/contracts\/[a-z0-9]+$/i, { timeout: 20_000 })
+
+  // Back on the client hub, the within-client search finds the contract.
+  await page.goto(clientUrl)
+  await page.getByLabel('بحث داخل ملف العميل').fill('ترخيص')
+  await expect(page.getByText('ترخيص حصري')).toBeVisible()
+
+  // A non-matching query shows the no-results state.
+  await page.getByLabel('بحث داخل ملف العميل').fill('xyz-لا-شيء')
+  await expect(page.getByText('لا توجد نتائج')).toBeVisible()
+})
