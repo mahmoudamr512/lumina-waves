@@ -27,8 +27,8 @@ import { auth } from '@/lib/auth'
 const PUBLIC_PATHS = ['/login', '/api/auth']
 // Exact-public paths (open only at the exact path). The "/" landing shows the
 // branded splash + login CTA; logged-in users are forwarded to /clients by the
-// page itself.
-const PUBLIC_EXACT = ['/']
+// page itself. The PWA manifest + service worker must be publicly fetchable.
+const PUBLIC_EXACT = ['/', '/manifest.webmanifest', '/sw.js']
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_EXACT.includes(pathname)) return true
