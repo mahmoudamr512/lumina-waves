@@ -4,3 +4,4 @@ memory/
 node_modules/
 .env
 .superpowers/
+.playwright-mcp/
