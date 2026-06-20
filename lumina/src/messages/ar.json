@@ -1,5 +1,6 @@
 {
   "nav": {
+    "overview": "نظرة عامة",
     "clients": "العملاء",
     "contracts": "العقود",
     "works": "الأعمال",
@@ -16,6 +17,20 @@
     "save": "حفظ",
     "newClient": "عميل جديد",
     "cancel": "إلغاء"
+  },
+  "ui": {
+    "loading": "جارٍ التحميل…",
+    "close": "إغلاق",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "back": "رجوع",
+    "noResults": "لا يوجد شيء بعد",
+    "required": "مطلوب",
+    "optional": "اختياري",
+    "menu": "القائمة"
+  },
+  "breadcrumb": {
+    "home": "نظرة عامة"
   },
   "locale": {
     "switchTo": "English",
