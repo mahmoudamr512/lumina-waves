@@ -1,37 +1,39 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { addAnnex, type AnnexState } from './actions'
-import { cn } from '@/lib/cn'
+import { Button, useToast } from '@/components/ui'
 
 const initial: AnnexState = { error: null }
 
-interface Props {
-  contractId: string
-  clientId: string
-}
-
-export default function AddAnnexButton({ contractId, clientId }: Props) {
+/**
+ * Adds an annex to a contract. The annex has no user-entered fields (its date is
+ * "now"), so this is a single action button rather than a dialog. On success it
+ * toasts and refreshes; failures render inline.
+ */
+export default function AddAnnexButton({ contractId, clientId }: { contractId: string; clientId: string }) {
   const [state, formAction, pending] = useActionState(addAnnex, initial)
+  const router = useRouter()
+  const { toast } = useToast()
+  const handled = useRef<AnnexState | null>(null)
+
+  useEffect(() => {
+    if (state.ok && handled.current !== state) {
+      handled.current = state
+      toast({ title: 'تمت إضافة الملحق', variant: 'success' })
+      router.refresh()
+    }
+  }, [state, toast, router])
 
   return (
     <form action={formAction} className="inline-flex flex-col items-end gap-1">
       <input type="hidden" name="contractId" value={contractId} />
       <input type="hidden" name="clientId" value={clientId} />
-      <button
-        type="submit"
-        disabled={pending}
-        className={cn(
-          'rounded-lg border border-border-elevation px-3 py-1.5 text-xs font-medium text-muted transition',
-          'hover:border-gold-400/40 hover:text-gold-200 focus:outline-none focus:ring-2 focus:ring-gold-400/50',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-        )}
-      >
+      <Button type="submit" variant="secondary" size="sm" loading={pending}>
         {pending ? 'جارٍ الإضافة…' : 'إضافة ملحق'}
-      </button>
-      {state.error && (
-        <span className="text-xs text-red-400">{state.error}</span>
-      )}
+      </Button>
+      {state.error && <span className="text-xs text-danger">{state.error}</span>}
     </form>
   )
 }
