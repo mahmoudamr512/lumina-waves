@@ -8,7 +8,7 @@ import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
 export default async function Home() {
   // Logged-in users go straight to the app; guests see the branded splash + login.
   const session = await auth();
-  if (session?.user) redirect("/clients");
+  if (session?.user) redirect("/overview");
 
   return (
     <AppShell>

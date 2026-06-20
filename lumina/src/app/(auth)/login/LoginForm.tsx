@@ -16,7 +16,7 @@ export function LoginForm() {
   const searchParams = useSearchParams()
   const raw = searchParams.get('callbackUrl') ?? ''
   // Security: only accept internal paths — must start with '/' but not '//' (protocol-relative)
-  const callbackUrl = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/clients'
+  const callbackUrl = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/overview'
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
