@@ -1,8 +1,10 @@
 'use client'
 
-import { useActionState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useActionState, useEffect, useRef } from 'react'
 import { addWork, type AddWorkState } from './actions'
-import { cn } from '@/lib/cn'
+import { Button, Field, Input, buttonClasses, useToast } from '@/components/ui'
 
 const CREDIT_ROLES = [
   { value: 'PERFORMER', label: 'مطرب / مؤدّي' },
@@ -16,85 +18,63 @@ const initialState: AddWorkState = { error: null }
 interface Props {
   clientId: string
   annexId: string
+  /** Parent contract — where we return after a successful save. */
+  contractId?: string
 }
 
-export default function AddWorkForm({ clientId, annexId }: Props) {
+export default function AddWorkForm({ clientId, annexId, contractId }: Props) {
   const [state, formAction, pending] = useActionState(addWork, initialState)
+  const router = useRouter()
+  const { toast } = useToast()
+  const handled = useRef<AddWorkState | null>(null)
+  const returnHref = contractId ? `/contracts/${contractId}` : `/clients/${clientId}`
+
+  useEffect(() => {
+    if (state.ok && handled.current !== state) {
+      handled.current = state
+      toast({ title: 'تم حفظ العمل', variant: 'success' })
+      router.push(returnHref)
+    }
+  }, [state, toast, router, returnHref])
 
   return (
-    <form action={formAction} className="space-y-6" dir="rtl">
+    <form action={formAction} className="space-y-6">
       <input type="hidden" name="clientId" value={clientId} />
       <input type="hidden" name="annexId" value={annexId} />
 
-      {/* Title */}
-      <div className="space-y-1.5">
-        <label htmlFor="title" className="block text-sm font-medium text-foreground">
-          عنوان الأغنية / العمل <span className="text-red-400">*</span>
-        </label>
-        <input
-          id="title"
-          name="title"
-          type="text"
-          required
-          placeholder="أدخل عنوان العمل"
-          className={cn(
-            'w-full rounded-lg border border-border-elevation bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted',
-            'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
-          )}
-        />
-      </div>
+      <Field label="عنوان الأغنية / العمل" htmlFor="title" required>
+        <Input id="title" name="title" type="text" required placeholder="أدخل عنوان العمل" />
+      </Field>
 
-      {/* Credits */}
       <fieldset className="space-y-3">
         <legend className="block text-sm font-medium text-foreground">
           أصحاب الحقوق
-          <span className="mr-1 text-xs font-normal text-muted">(اختياري)</span>
+          <span className="ms-1 text-xs font-normal text-muted">(اختياري)</span>
         </legend>
-        <div className="space-y-2 rounded-lg border border-border-elevation bg-surface/40 p-3">
+        <div className="space-y-2 rounded-lg border border-line bg-ink-soft p-3">
           {CREDIT_ROLES.map((roleOpt, i) => (
-            <div key={roleOpt.value} className="grid grid-cols-5 gap-3 items-center">
+            <div key={roleOpt.value} className="grid grid-cols-5 items-center gap-3">
               <input type="hidden" name={`role_${i}`} value={roleOpt.value} />
               <span className="col-span-2 text-sm text-muted">{roleOpt.label}</span>
-              <input
-                name={`name_${i}`}
-                type="text"
-                placeholder="الاسم"
-                className={cn(
-                  'col-span-3 rounded-lg border border-border-elevation bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted',
-                  'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
-                )}
-              />
+              <Input className="col-span-3" name={`name_${i}`} type="text" placeholder="الاسم" />
             </div>
           ))}
         </div>
       </fieldset>
 
-      {/* Error */}
       {state.error && (
-        <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+        <p role="alert" className="rounded-lg border border-danger/20 bg-danger/10 px-4 py-2.5 text-sm text-danger">
           {state.error}
         </p>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center justify-between gap-3 pt-2">
-        <a
-          href={`/clients/${clientId}`}
-          className="text-sm text-muted transition hover:text-foreground"
-        >
-          إلغاء
-        </a>
-        <button
-          type="submit"
-          disabled={pending}
-          className={cn(
-            'rounded-lg bg-gold-400 px-5 py-2 text-sm font-semibold text-ink transition',
-            'hover:bg-gold-200 focus:outline-none focus:ring-2 focus:ring-gold-400/50',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
-        >
+      <div className="flex items-center gap-3 pt-2">
+        <Button type="submit" loading={pending}>
           {pending ? 'جارٍ الحفظ…' : 'حفظ العمل'}
-        </button>
+        </Button>
+        <Link href={returnHref} className={buttonClasses('ghost')}>
+          إلغاء
+        </Link>
       </div>
     </form>
   )

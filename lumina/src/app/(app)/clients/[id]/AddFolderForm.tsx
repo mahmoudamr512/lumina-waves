@@ -1,77 +1,51 @@
 'use client'
 
-import { useActionState, useState } from 'react'
 import { addFolder, type FolderState } from './actions'
-import { cn } from '@/lib/cn'
+import { Button, Dialog, Field, Input, buttonClasses, IconPlus } from '@/components/ui'
+import { useQuickAdd } from './_forms/useQuickAdd'
 
 const initial: FolderState = { error: null }
 
-interface Props {
+export default function AddFolderForm({
+  clientId,
+  parentId,
+  label,
+}: {
   clientId: string
   parentId?: string
   label?: string
-}
-
-export default function AddFolderForm({ clientId, parentId, label }: Props) {
-  const [open, setOpen] = useState(false)
-  const [state, formAction, pending] = useActionState(addFolder, initial)
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className={cn(
-          'rounded-lg border border-border-elevation px-3 py-1.5 text-xs font-medium text-muted transition',
-          'hover:border-gold-400/40 hover:text-gold-200 focus:outline-none focus:ring-2 focus:ring-gold-400/50',
-        )}
-      >
-        {label ?? '+ إنشاء مجلد'}
-      </button>
-    )
-  }
+}) {
+  const { open, setOpen, state, formAction, pending } = useQuickAdd(addFolder, initial, 'تم إنشاء المجلد')
+  const title = parentId ? 'إنشاء مجلد فرعي' : 'إنشاء مجلد'
 
   return (
-    <form
-      action={async (fd) => {
-        await formAction(fd)
-        if (!state.error) setOpen(false)
-      }}
-      className="flex flex-wrap items-end gap-2 rounded-lg border border-border-elevation bg-surface/40 p-3"
-    >
-      <input type="hidden" name="clientId" value={clientId} />
-      {parentId && <input type="hidden" name="parentId" value={parentId} />}
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted">اسم المجلد</label>
-        <input
-          name="name"
-          required
-          placeholder="اسم المجلد"
-          className={cn(
-            'rounded border border-border-elevation bg-surface px-2.5 py-1.5 text-sm text-foreground',
-            'placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-gold-400/50',
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={buttonClasses('secondary', 'sm')}>
+        <IconPlus className="h-4 w-4" /> {label ?? 'إنشاء مجلد'}
+      </button>
+
+      <Dialog open={open} onClose={() => setOpen(false)} title={title}>
+        <form action={formAction} className="space-y-4">
+          <input type="hidden" name="clientId" value={clientId} />
+          {parentId && <input type="hidden" name="parentId" value={parentId} />}
+          <Field label="اسم المجلد" htmlFor="folder-name" required>
+            <Input id="folder-name" name="name" required placeholder="اسم المجلد" />
+          </Field>
+          {state.error && (
+            <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+              {state.error}
+            </p>
           )}
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={pending}
-          className={cn(
-            'rounded-lg bg-gold-400 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-gold-200',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
-        >
-          {pending ? 'جارٍ الإنشاء…' : 'إنشاء'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-xs text-muted transition hover:text-foreground"
-        >
-          إلغاء
-        </button>
-      </div>
-      {state.error && <span className="w-full text-xs text-red-400">{state.error}</span>}
-    </form>
+          <div className="flex items-center gap-3">
+            <Button type="submit" loading={pending}>
+              {pending ? 'جارٍ الإنشاء…' : 'إنشاء'}
+            </Button>
+            <button type="button" onClick={() => setOpen(false)} className={buttonClasses('ghost', 'sm')}>
+              إلغاء
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    </>
   )
 }

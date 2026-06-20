@@ -9,6 +9,8 @@ import { AuthzError } from '@/lib/errors'
 
 export interface AnnexState {
   error: string | null
+  /** True once the mutation succeeded — dialogs toast and close on this. */
+  ok?: boolean
 }
 
 export async function addAnnex(
@@ -28,11 +30,13 @@ export async function addAnnex(
   }
 
   revalidatePath('/clients/' + clientId)
-  return { error: null }
+  return { error: null, ok: true }
 }
 
 export interface AttachState {
   error: string | null
+  /** True once the mutation succeeded — dialogs toast and close on this. */
+  ok?: boolean
 }
 
 export async function attachDocument(
@@ -57,13 +61,15 @@ export async function attachDocument(
   }
 
   revalidatePath('/clients/' + clientId)
-  return { error: null }
+  return { error: null, ok: true }
 }
 
 // ── Releases ──────────────────────────────────────────────────────────────────
 
 export interface ReleaseState {
   error: string | null
+  /** True once the mutation succeeded — dialogs toast and close on this. */
+  ok?: boolean
 }
 
 export async function addRelease(
@@ -86,11 +92,13 @@ export async function addRelease(
   }
 
   revalidatePath('/clients/' + clientId)
-  return { error: null }
+  return { error: null, ok: true }
 }
 
 export interface TrackState {
   error: string | null
+  /** True once the mutation succeeded — dialogs toast and close on this. */
+  ok?: boolean
 }
 
 export async function addTrack(
@@ -115,13 +123,15 @@ export async function addTrack(
   }
 
   revalidatePath('/clients/' + clientId)
-  return { error: null }
+  return { error: null, ok: true }
 }
 
 // ── Folders ───────────────────────────────────────────────────────────────────
 
 export interface FolderState {
   error: string | null
+  /** True once the mutation succeeded — dialogs toast and close on this. */
+  ok?: boolean
 }
 
 export async function addFolder(
@@ -142,7 +152,7 @@ export async function addFolder(
   }
 
   revalidatePath('/clients/' + clientId)
-  return { error: null }
+  return { error: null, ok: true }
 }
 
 export async function attachToFolder(
@@ -166,5 +176,5 @@ export async function attachToFolder(
   }
 
   revalidatePath('/clients/' + clientId)
-  return { error: null }
+  return { error: null, ok: true }
 }

@@ -1,8 +1,22 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
-import { search } from '@/lib/search'
+import { can } from '@/lib/authz'
+import { db } from '@/lib/db'
+import { search as searchDocs } from '@/lib/search'
 import { FadeIn } from '@/components/motion'
-import { LuminaWaveMark } from '@/components/brand'
+import {
+  Breadcrumb,
+  Card,
+  CardBody,
+  Input,
+  Button,
+  EmptyState,
+  IconSearch,
+  IconClients,
+  IconWorks,
+  IconDocuments,
+} from '@/components/ui'
 
 export const metadata = {
   title: 'البحث | Lumina Waves',
@@ -10,93 +24,211 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic'
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>
-}) {
+interface Hit {
+  id: string
+  title: string
+  subtitle?: string
+  href: string
+  /** True for the secured /documents/[id] file route → plain anchor, not <Link>. */
+  external?: boolean
+}
+
+interface Group {
+  key: string
+  label: string
+  icon: React.ReactNode
+  hits: Hit[]
+}
+
+export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
+  const role = session.user.role
 
   const { q } = await searchParams
+  const query = q?.trim() ?? ''
 
-  let hits: Array<{ id: string; title: string; clientName?: string }> = []
+  const groups: Group[] = []
   let searchError = false
 
-  if (q) {
-    try {
-      hits = await search(q)
-    } catch {
-      searchError = true
+  if (query) {
+    const contains = { contains: query, mode: 'insensitive' as const }
+
+    const [clientRows, workRows, docHits] = await Promise.all([
+      can(role, 'read', 'Client')
+        ? db.client.findMany({
+            where: { OR: [{ legalName: contains }, { stageName: contains }] },
+            take: 20,
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, legalName: true, stageName: true },
+          })
+        : Promise.resolve([]),
+      can(role, 'read', 'Work')
+        ? db.work.findMany({
+            where: { title: contains },
+            take: 20,
+            orderBy: { createdAt: 'desc' },
+            // Narrow select: never load contract financial fields here (this page
+            // bypasses the redacting service layer). deletedAt is pulled so we can
+            // drop works whose parent annex/contract was soft-deleted.
+            select: {
+              id: true,
+              title: true,
+              annex: {
+                select: {
+                  deletedAt: true,
+                  contract: {
+                    select: {
+                      deletedAt: true,
+                      client: { select: { stageName: true, legalName: true } },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        : Promise.resolve([]),
+      can(role, 'read', 'Document')
+        ? searchDocs(query).catch(() => {
+            searchError = true
+            return []
+          })
+        : Promise.resolve([]),
+    ])
+
+    if (clientRows.length) {
+      groups.push({
+        key: 'clients',
+        label: 'العملاء',
+        icon: <IconClients className="h-4 w-4" />,
+        hits: clientRows.map((c) => ({
+          id: c.id,
+          title: c.stageName ?? c.legalName,
+          subtitle: c.stageName && c.stageName !== c.legalName ? c.legalName : undefined,
+          href: `/clients/${c.id}`,
+        })),
+      })
+    }
+
+    if (workRows.length) {
+      groups.push({
+        key: 'works',
+        label: 'الأعمال',
+        icon: <IconWorks className="h-4 w-4" />,
+        hits: workRows.map((w) => {
+          // Only surface the client when neither the annex nor its contract is
+          // soft-deleted (soft-delete is non-cascading, so check both levels).
+          const annex = w.annex && !w.annex.deletedAt ? w.annex : null
+          const contract = annex?.contract && !annex.contract.deletedAt ? annex.contract : null
+          const client = contract?.client ?? null
+          return {
+            id: w.id,
+            title: w.title,
+            subtitle: client ? (client.stageName ?? client.legalName) : undefined,
+            href: `/works/${w.id}`,
+          }
+        }),
+      })
+    }
+
+    if (docHits.length) {
+      groups.push({
+        key: 'documents',
+        label: 'المستندات',
+        icon: <IconDocuments className="h-4 w-4" />,
+        hits: docHits.map((d) => ({
+          id: d.id,
+          title: d.title,
+          subtitle: d.clientName,
+          href: `/documents/${d.id}`,
+          external: true,
+        })),
+      })
     }
   }
 
+  const totalHits = groups.reduce((n, g) => n + g.hits.length, 0)
+
   return (
     <section className="space-y-8">
+      <Breadcrumb items={[{ label: 'نظرة عامة', href: '/overview' }, { label: 'البحث' }]} />
+
       <FadeIn>
-        <header className="space-y-1 border-b border-border-elevation pb-5">
+        <header className="space-y-1 border-b border-line pb-5">
           <h1 className="font-display text-3xl font-semibold text-gold-metallic">البحث</h1>
-          <p className="text-sm text-muted">ابحث في المستندات المفهرسة</p>
+          <p className="text-sm text-muted">ابحث في العملاء والأعمال والمستندات</p>
         </header>
       </FadeIn>
 
       <FadeIn delay={0.05}>
         <form method="GET" className="flex gap-3">
-          <input
-            name="q"
-            type="search"
-            defaultValue={q ?? ''}
-            placeholder="ابحث في المستندات…"
-            aria-label="نص البحث"
-            className="flex-1 rounded-lg border border-border-elevation bg-ink px-3.5 py-3 text-foreground placeholder:text-muted/50 focus:border-gold-400 focus:outline-none focus:ring-1 focus:ring-gold-400"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-gold-400 px-5 py-3 text-sm font-semibold text-ink transition hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-200"
-          >
-            بحث
-          </button>
+          <Input name="q" type="search" defaultValue={query} placeholder="ابحث في النظام…" aria-label="نص البحث" />
+          <Button type="submit">بحث</Button>
         </form>
       </FadeIn>
 
-      {searchError && (
+      {searchError && totalHits === 0 && (
         <FadeIn delay={0.1}>
-          <p role="alert" className="rounded-lg bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-            خدمة البحث غير متاحة حاليًا. يُرجى المحاولة لاحقًا.
+          <p role="alert" className="rounded-lg bg-warning/10 px-4 py-3 text-sm text-warning">
+            تعذّر الوصول إلى فهرس المستندات حاليًا — قد تكون النتائج غير مكتملة.
           </p>
         </FadeIn>
       )}
 
-      {!searchError && q && hits.length === 0 && (
+      {query && totalHits === 0 && !searchError && (
         <FadeIn delay={0.1}>
-          <div className="flex flex-col items-center gap-4 py-16 text-center">
-            <LuminaWaveMark size={56} variant="gold" title="لا نتائج" />
-            <p className="text-muted">لم يُعثر على نتائج لـ «{q}»</p>
-          </div>
+          <EmptyState icon={<IconSearch className="h-6 w-6" />} title={`لم يُعثر على نتائج لـ «${query}»`} />
         </FadeIn>
       )}
 
-      {!searchError && hits.length > 0 && (
-        <FadeIn delay={0.1}>
-          <ul className="divide-y divide-border-elevation rounded-2xl border border-border-elevation" role="list">
-            {hits.map((hit) => (
-              <li key={hit.id} className="px-5 py-4">
-                <p className="font-medium text-foreground">{hit.title}</p>
-                {hit.clientName && (
-                  <p className="mt-0.5 text-xs text-muted">{hit.clientName}</p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </FadeIn>
+      {totalHits > 0 && (
+        <div className="space-y-8">
+          {groups.map((group) => (
+            <FadeIn key={group.key} delay={0.08}>
+              <div className="space-y-3">
+                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-subtle">
+                  {group.icon}
+                  {group.label}
+                  <span className="text-subtle">({group.hits.length})</span>
+                </h2>
+                <ul className="space-y-3">
+                  {group.hits.map((hit) => {
+                    const card = (
+                      <Card interactive>
+                        <CardBody>
+                          <p className="font-medium text-foreground">{hit.title}</p>
+                          {hit.subtitle && <p className="mt-0.5 text-xs text-muted">{hit.subtitle}</p>}
+                        </CardBody>
+                      </Card>
+                    )
+                    return (
+                      <li key={hit.id}>
+                        {hit.external ? (
+                          <a href={hit.href} className="block rounded-xl focus-ring">
+                            {card}
+                          </a>
+                        ) : (
+                          <Link href={hit.href} className="block rounded-xl focus-ring">
+                            {card}
+                          </Link>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
       )}
 
-      {!q && !searchError && (
+      {!query && (
         <FadeIn delay={0.1}>
-          <div className="flex flex-col items-center gap-4 py-16 text-center">
-            <LuminaWaveMark size={56} variant="gold" title="ابدأ البحث" />
-            <p className="text-muted">أدخل مصطلح البحث أعلاه للبدء</p>
-          </div>
+          <EmptyState
+            icon={<IconSearch className="h-6 w-6" />}
+            title="ابدأ البحث"
+            body="ابحث عن عميل أو عمل موسيقي أو مستند."
+          />
         </FadeIn>
       )}
     </section>

@@ -1,12 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createContract } from '@/services/contracts'
 import { AuthzError } from '@/lib/errors'
 
 export interface AddContractState {
   error: string | null
+  /** Set on success — the form toasts and navigates to the new contract. */
+  ok?: boolean
+  contractId?: string
 }
 
 export async function addContract(
@@ -42,8 +44,9 @@ export async function addContract(
   const revenueShareBps = Math.round(revenueSharePct * 100)
   const signedDate = signedDateRaw ? new Date(signedDateRaw) : undefined
 
+  let contractId: string
   try {
-    await createContract({
+    const created = await createContract({
       clientId,
       grantType,
       territory,
@@ -55,6 +58,7 @@ export async function addContract(
       noticeDays: isNaN(noticeDays) ? undefined : noticeDays,
       signedDate,
     })
+    contractId = String(created.id)
   } catch (err) {
     if (err instanceof AuthzError) {
       return { error: 'ليس لديك صلاحية لإنشاء عقد.' }
@@ -73,5 +77,5 @@ export async function addContract(
   }
 
   revalidatePath('/clients/' + clientId)
-  redirect('/clients/' + clientId)
+  return { error: null, ok: true, contractId }
 }

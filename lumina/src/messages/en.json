@@ -1,5 +1,6 @@
 {
   "nav": {
+    "overview": "Overview",
     "clients": "Clients",
     "contracts": "Contracts",
     "works": "Works",
@@ -16,6 +17,20 @@
     "save": "Save",
     "newClient": "New client",
     "cancel": "Cancel"
+  },
+  "ui": {
+    "loading": "Loading…",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "back": "Back",
+    "noResults": "Nothing here yet",
+    "required": "Required",
+    "optional": "Optional",
+    "menu": "Menu"
+  },
+  "breadcrumb": {
+    "home": "Overview"
   },
   "locale": {
     "switchTo": "العربية",

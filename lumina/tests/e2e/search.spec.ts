@@ -19,7 +19,7 @@ async function login(page: import('playwright/test').Page) {
   await page.getByLabel('البريد الإلكتروني').fill(E2E_ADMIN_EMAIL)
   await page.getByLabel('كلمة المرور').fill(E2E_ADMIN_PASSWORD)
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
-  await expect(page).toHaveURL(/\/(clients|documents|search)/, { timeout: 20_000 })
+  await expect(page).toHaveURL(/\/(overview|clients|documents|search)/, { timeout: 20_000 })
 }
 
 test('upload: login → upload fixture → appears in documents list', async ({ page }) => {

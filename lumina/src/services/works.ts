@@ -34,6 +34,28 @@ export async function linkWorkToAnnex(workId: string, annexId: string) {
   return row
 }
 
+export async function getWork(id: string) {
+  const u = await requireUser('read', 'Work')
+  const row = await db.work.findUnique({
+    where: { id },
+    include: {
+      credits: true,
+      annex: { include: { contract: { include: { client: true } } } },
+    },
+  })
+  if (!row) return null
+  // `where` isn't supported on to-one includes; filter soft-deleted parents here.
+  const annexRow = row.annex && !row.annex.deletedAt ? row.annex : null
+  const contractRow = annexRow?.contract && !annexRow.contract.deletedAt ? annexRow.contract : null
+  const clientRow = contractRow?.client && !contractRow.client.deletedAt ? contractRow.client : null
+  const redactedClient = clientRow ? redactSensitive(u.role, 'Client', clientRow) : null
+  const redactedContract = contractRow
+    ? { ...redactSensitive(u.role, 'MasterContract', contractRow), client: redactedClient }
+    : null
+  const annex = annexRow ? { ...annexRow, contract: redactedContract } : null
+  return { ...row, annex }
+}
+
 export async function listWorks() {
   const u = await requireUser('read', 'Work')
   const rows = await db.work.findMany({

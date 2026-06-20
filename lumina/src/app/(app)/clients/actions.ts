@@ -1,12 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createClient } from '@/services/clients'
 import { AuthzError } from '@/lib/errors'
 
 export interface AddClientState {
   error: string | null
+  /** True once the client was created — the form toasts and navigates on this. */
+  ok?: boolean
   /** Preserved field values so the form can re-render without losing input. */
   values?: { legalName: string; stageName: string; nationalId: string }
 }
@@ -18,8 +19,8 @@ export interface AddClientState {
  * returned as a friendly Arabic message via `useActionState` rather than
  * thrown — so a bad nationalId never produces an unhandled exception page.
  *
- * On success we revalidate /clients and redirect there. `redirect` throws, so
- * it is intentionally called OUTSIDE the try/catch (per Next.js guidance).
+ * On success we revalidate /clients and return `ok: true`; the client form
+ * shows a toast and navigates (so the success confirmation is visible).
  */
 export async function addClient(
   _prev: AddClientState,
@@ -63,5 +64,5 @@ export async function addClient(
   }
 
   revalidatePath('/clients')
-  redirect('/clients')
+  return { error: null, ok: true }
 }

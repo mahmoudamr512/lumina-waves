@@ -35,6 +35,36 @@ export async function getContract(id: string) {
   return row ? redactSensitive(u.role, 'MasterContract', row) : null
 }
 
+export async function getContractDetail(id: string) {
+  const u = await requireUser('read', 'MasterContract')
+  const row = await db.masterContract.findUnique({
+    where: { id },
+    include: {
+      client: true,
+      documents: { where: { deletedAt: null } },
+      annexes: {
+        where: { deletedAt: null },
+        orderBy: { number: 'asc' },
+        include: {
+          works: { where: { deletedAt: null }, include: { credits: true } },
+          documents: { where: { deletedAt: null } },
+        },
+      },
+    },
+  })
+  if (!row) return null
+  const role = u.role
+  const redactedContract = redactSensitive(role, 'MasterContract', row)
+  const client = redactSensitive(role, 'Client', row.client)
+  const documents = row.documents.map((d) => redactSensitive(role, 'Document', d))
+  const annexes = row.annexes.map((a) => ({
+    ...a,
+    works: a.works,
+    documents: a.documents.map((d) => redactSensitive(role, 'Document', d)),
+  }))
+  return { ...redactedContract, client, documents, annexes, role }
+}
+
 export async function listContracts() {
   const u = await requireUser('read', 'MasterContract')
   const rows = await db.masterContract.findMany({
