@@ -4,8 +4,9 @@ import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
 import { listContracts } from '@/services/contracts'
 import { GRANT_TYPES } from '@/lib/rights'
-import { FadeIn, Stagger, StaggerItem } from '@/components/motion'
-import { LuminaWaveMark } from '@/components/brand'
+import { FadeIn } from '@/components/motion'
+import { Breadcrumb, Table, THead, TBody, TR, TH, TD, Badge, EmptyState, buttonClasses, IconContracts } from '@/components/ui'
+import { TERRITORY_AR, termLabel } from '@/lib/labels'
 
 export const metadata = {
   title: 'العقود | Lumina Waves',
@@ -13,15 +14,9 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic'
 
-const TERRITORY_AR: Record<string, string> = {
-  EGYPT: 'جمهورية مصر العربية',
-  MENA: 'منطقة الشرق الأوسط وشمال إفريقيا',
-  WORLDWIDE: 'جميع أنحاء العالم',
-}
-
 /**
- * Flat list of all master contracts (RSC). Each row links to its client's
- * tree detail page. ADMIN and LEGAL also see a link to generate a PDF draft.
+ * Flat list of all master contracts (RSC). Each row links to the focused
+ * contract detail page. ADMIN and LEGAL also see a generate-PDF row action.
  */
 export default async function ContractsPage() {
   const session = await auth()
@@ -33,74 +28,65 @@ export default async function ContractsPage() {
 
   return (
     <section className="space-y-8">
+      <Breadcrumb items={[{ label: 'نظرة عامة', href: '/overview' }, { label: 'العقود' }]} />
+
       <FadeIn>
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border-elevation pb-5">
-          <div className="space-y-1">
-            <h1 className="font-display text-3xl font-semibold text-gold-metallic">العقود</h1>
-            <p className="text-sm text-muted">
-              {contracts.length > 0 ? `${contracts.length} عقد مسجّل` : 'إدارة عقود لومينا ويفز'}
-            </p>
-          </div>
+        <header className="border-b border-line pb-5">
+          <h1 className="font-display text-3xl font-semibold text-gold-metallic">العقود</h1>
+          <p className="mt-1 text-sm text-muted">
+            {contracts.length > 0 ? `${contracts.length} عقد مسجّل` : 'إدارة عقود لومينا ويفز'}
+          </p>
         </header>
       </FadeIn>
 
       {contracts.length === 0 ? (
-        <FadeIn
-          delay={0.1}
-          className="flex flex-col items-center justify-center gap-5 rounded-2xl border border-dashed border-border-elevation py-20 text-center"
-        >
-          <LuminaWaveMark size={72} variant="gold" title="لا توجد عقود" />
-          <div className="space-y-1">
-            <p className="text-lg font-medium text-foreground">لا توجد عقود بعد</p>
-            <p className="text-sm text-muted">ستظهر العقود هنا بعد إنشائها.</p>
-          </div>
-        </FadeIn>
+        <EmptyState
+          icon={<IconContracts className="h-6 w-6" />}
+          title="لا توجد عقود بعد"
+          body="ستظهر العقود هنا بعد إنشائها."
+        />
       ) : (
-        <Stagger stagger={0.04} delayChildren={0.05}>
-          <ul
-            className="overflow-hidden divide-y divide-border-elevation rounded-2xl border border-border-elevation"
-            role="list"
-          >
-            {contracts.map((contract) => {
-              const grantLabel = GRANT_TYPES[contract.grantType as keyof typeof GRANT_TYPES]
-              const clientName =
-                contract.client.stageName ?? contract.client.legalName
-              const termMonths = contract.termMonths as number
-              const termYears =
-                termMonths % 12 === 0
-                  ? `${termMonths / 12} ${termMonths / 12 === 1 ? 'سنة' : 'سنوات'}`
-                  : `${termMonths} شهرًا`
-
-              return (
-                <StaggerItem key={String(contract.id)} className="contents">
-                  <li className="flex flex-wrap items-center justify-between gap-3 bg-surface/40 px-5 py-4 transition hover:bg-surface">
-                    <Link
-                      href={`/clients/${String(contract.clientId)}`}
-                      className="group min-w-0 flex-1 space-y-0.5 focus:outline-none"
-                    >
-                      <p className="truncate text-sm font-medium text-foreground transition group-hover:text-gold-200">
-                        {clientName}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {grantLabel?.ar ?? String(contract.grantType)} ·{' '}
-                        {TERRITORY_AR[contract.territory as string] ?? String(contract.territory)} ·{' '}
-                        {termYears}
-                      </p>
-                    </Link>
+        <FadeIn delay={0.05}>
+          <Table>
+            <THead>
+              <tr>
+                <TH>العميل</TH>
+                <TH>النوع</TH>
+                <TH>النطاق</TH>
+                <TH>المدة</TH>
+                {canGenerate && <TH>إجراءات</TH>}
+              </tr>
+            </THead>
+            <TBody>
+              {contracts.map((contract) => {
+                const grantLabel = GRANT_TYPES[contract.grantType as keyof typeof GRANT_TYPES]
+                const clientName = contract.client.stageName ?? contract.client.legalName
+                return (
+                  <TR key={String(contract.id)} href={`/contracts/${String(contract.id)}`}>
+                    <TD className="font-medium">{clientName}</TD>
+                    <TD>
+                      <Badge variant="gold">{grantLabel?.ar ?? String(contract.grantType)}</Badge>
+                    </TD>
+                    <TD className="text-muted">
+                      {TERRITORY_AR[contract.territory as string] ?? String(contract.territory)}
+                    </TD>
+                    <TD className="text-muted">{termLabel(contract.termMonths as number)}</TD>
                     {canGenerate && (
-                      <Link
-                        href={`/contracts/${String(contract.id)}/generate`}
-                        className="shrink-0 rounded-lg border border-gold-400/30 px-3 py-1.5 text-xs font-medium text-gold-200 transition hover:border-gold-400/60 focus:outline-none focus:ring-2 focus:ring-gold-200"
-                      >
-                        إنشاء PDF
-                      </Link>
+                      <TD className="relative z-10">
+                        <Link
+                          href={`/contracts/${String(contract.id)}/generate`}
+                          className={buttonClasses('secondary', 'sm')}
+                        >
+                          إنشاء PDF
+                        </Link>
+                      </TD>
                     )}
-                  </li>
-                </StaggerItem>
-              )
-            })}
-          </ul>
-        </Stagger>
+                  </TR>
+                )
+              })}
+            </TBody>
+          </Table>
+        </FadeIn>
       )}
     </section>
   )

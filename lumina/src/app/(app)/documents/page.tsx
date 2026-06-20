@@ -4,7 +4,8 @@ import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
 import { db } from '@/lib/db'
 import { FadeIn } from '@/components/motion'
-import { LuminaWaveMark } from '@/components/brand'
+import { Breadcrumb, Table, THead, TBody, TR, TH, TD, Badge, EmptyState, buttonClasses, statusVariant, IconDocuments, IconPlus } from '@/components/ui'
+import { DOC_STATUS_AR, formatDateAr } from '@/lib/labels'
 
 export const metadata = {
   title: 'المستندات | Lumina Waves',
@@ -12,9 +13,16 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic'
 
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'مسودة',
-  EXECUTED: 'منفّذ',
+/** Returns a short Arabic label describing where a document is attached. */
+function contextLabel(doc: {
+  contract: { client: { stageName: string | null; legalName: string } | null } | null
+  annex: { number: number } | null
+  folder: { name: string } | null
+}): string {
+  if (doc.annex) return `ملحق رقم ${doc.annex.number}`
+  if (doc.contract?.client) return `عقد: ${doc.contract.client.stageName ?? doc.contract.client.legalName}`
+  if (doc.folder) return `مجلد: ${doc.folder.name}`
+  return '—'
 }
 
 export default async function DocumentsPage() {
@@ -30,87 +38,79 @@ export default async function DocumentsPage() {
       filename: true,
       status: true,
       createdAt: true,
-      // storagePath is intentionally excluded — never expose raw fs paths to UI
+      // storagePath intentionally excluded — never expose raw fs paths to UI.
+      contract: { select: { client: { select: { stageName: true, legalName: true } } } },
+      annex: { select: { number: true } },
+      folder: { select: { name: true } },
     },
   })
 
   return (
     <section className="space-y-8">
+      <Breadcrumb items={[{ label: 'نظرة عامة', href: '/overview' }, { label: 'المستندات' }]} />
+
       <FadeIn>
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border-elevation pb-5">
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
           <div className="space-y-1">
             <h1 className="font-display text-3xl font-semibold text-gold-metallic">المستندات</h1>
             <p className="text-sm text-muted">
-              {documents.length > 0
-                ? `${documents.length} مستند`
-                : 'إدارة مستندات لومينا ويفز'}
+              {documents.length > 0 ? `${documents.length} مستند` : 'إدارة مستندات لومينا ويفز'}
             </p>
           </div>
           {canCreate && (
-            <Link
-              href="/documents/upload"
-              className="rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-200"
-            >
-              رفع مستند
+            <Link href="/documents/upload" className={buttonClasses('primary')}>
+              <IconPlus className="h-4 w-4" /> رفع مستند
             </Link>
           )}
         </header>
       </FadeIn>
 
       {documents.length === 0 ? (
-        <EmptyState canCreate={canCreate} />
+        <EmptyState
+          icon={<IconDocuments className="h-6 w-6" />}
+          title="لا توجد مستندات بعد"
+          body="ابدأ برفع أول مستند إلى النظام."
+          action={
+            canCreate ? (
+              <Link href="/documents/upload" className={buttonClasses('primary')}>
+                <IconPlus className="h-4 w-4" /> رفع مستند
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
-        <FadeIn delay={0.1}>
-          <ul className="divide-y divide-border-elevation rounded-2xl border border-border-elevation" role="list">
-            {documents.map((doc) => (
-              <li key={doc.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                <div className="space-y-0.5">
-                  <p className="font-medium text-foreground">{doc.filename}</p>
-                  <p className="text-xs text-muted">
-                    {new Date(doc.createdAt).toLocaleDateString('ar-EG', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    doc.status === 'EXECUTED'
-                      ? 'bg-gold-400/10 text-gold-200'
-                      : 'bg-white/5 text-muted'
-                  }`}
-                >
-                  {STATUS_LABELS[doc.status] ?? doc.status}
-                </span>
-              </li>
-            ))}
-          </ul>
+        <FadeIn delay={0.05}>
+          <Table>
+            <THead>
+              <tr>
+                <TH>الملف</TH>
+                <TH>السياق</TH>
+                <TH>الحالة</TH>
+                <TH>التاريخ</TH>
+              </tr>
+            </THead>
+            <TBody>
+              {documents.map((doc) => (
+                <TR key={doc.id}>
+                  <TD>
+                    <a
+                      href={`/documents/${doc.id}`}
+                      className="rounded text-foreground underline-offset-2 transition hover:text-gold-200 hover:underline focus-ring"
+                    >
+                      {doc.filename}
+                    </a>
+                  </TD>
+                  <TD className="text-muted">{contextLabel(doc)}</TD>
+                  <TD>
+                    <Badge variant={statusVariant(doc.status)}>{DOC_STATUS_AR[doc.status] ?? doc.status}</Badge>
+                  </TD>
+                  <TD className="text-muted">{formatDateAr(doc.createdAt)}</TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
         </FadeIn>
       )}
     </section>
-  )
-}
-
-function EmptyState({ canCreate }: { canCreate: boolean }) {
-  return (
-    <FadeIn
-      delay={0.1}
-      className="flex flex-col items-center justify-center gap-5 rounded-2xl border border-dashed border-border-elevation py-20 text-center"
-    >
-      <LuminaWaveMark size={72} variant="gold" title="لا توجد مستندات" />
-      <div className="space-y-1">
-        <p className="text-lg font-medium text-foreground">لا توجد مستندات بعد</p>
-        <p className="text-sm text-muted">ابدأ برفع أول مستند إلى النظام.</p>
-      </div>
-      {canCreate && (
-        <Link
-          href="/documents/upload"
-          className="rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-200"
-        >
-          رفع مستند
-        </Link>
-      )}
-    </FadeIn>
   )
 }
