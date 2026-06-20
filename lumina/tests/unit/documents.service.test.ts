@@ -8,6 +8,15 @@ vi.mock('@/lib/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'admin', ro
 // Mock renderPdf so we never need Playwright / Chromium in unit tests
 vi.mock('@/lib/pdf', () => ({ renderPdf: vi.fn(async () => Buffer.from('%PDF-fake')) }))
 
+// Capture the data passed to the contract template so we can assert WHICH works
+// (live vs soft-deleted) are rendered into the PDF.
+const { renderContractSpy } = vi.hoisted(() => ({
+  renderContractSpy: vi.fn<(grantType: unknown, opts: { works?: Array<{ titleAr: string }> }) => string>(
+    () => '<html>fake</html>',
+  ),
+}))
+vi.mock('@/templates/contracts', () => ({ renderContract: renderContractSpy }))
+
 // Mock queue for uploadDocument tests — no Redis needed
 vi.mock('@/lib/queue', () => ({
   connectionOptions: {},
@@ -21,6 +30,8 @@ vi.mock('@/lib/queue', () => ({
 
 import { generateContractPdf, markExecuted } from '@/services/documents'
 import { createContract } from '@/services/contracts'
+import { createAnnex } from '@/services/annexes'
+import { createWork } from '@/services/works'
 import { createClient } from '@/services/clients'
 import { requireUser } from '@/lib/auth'
 import { db } from '@/lib/db'
@@ -115,6 +126,31 @@ test('markExecuted writes an audit row', async () => {
     where: { entity: 'Document', entityId: executed.id, action: 'UPDATE' },
   })
   expect(auditRow).not.toBeNull()
+})
+
+test('generateContractPdf excludes soft-deleted annexes/works from the rendered PDF', async () => {
+  renderContractSpy.mockClear()
+  const c = await createClient({ legalName: 'SoftDelete PDF', nationalId: uid() })
+  const k = await createContract({
+    clientId: c.id,
+    grantType: 'FULL_ASSIGNMENT',
+    territory: 'EGYPT',
+    termMonths: 12,
+    coverage: ['DIGITAL'],
+  })
+  const annex = await createAnnex({ contractId: k.id, annexDate: new Date() })
+  await createWork({ title: 'Live Work', annexId: annex.id, credits: [] })
+  const deleted = await createWork({ title: 'Deleted Work', annexId: annex.id, credits: [] })
+  // Soft-delete one work (sets deletedAt without cascading) — it must NOT appear
+  // in the generated PDF's list of works being sold.
+  await db.work.update({ where: { id: deleted.id }, data: { deletedAt: new Date() } })
+
+  await generateContractPdf(k.id)
+
+  const opts = renderContractSpy.mock.calls.at(-1)?.[1]
+  const titles = (opts?.works ?? []).map((w) => w.titleAr)
+  expect(titles).toContain('Live Work')
+  expect(titles).not.toContain('Deleted Work')
 })
 
 test('generateContractPdf rejects OPERATIONS role (not in sensitive allowlist)', async () => {

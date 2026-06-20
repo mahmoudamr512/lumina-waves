@@ -34,7 +34,13 @@ export async function generateContractPdf(contractId: string) {
     where: { id: contractId },
     include: {
       client: true,
-      annexes: { include: { works: { include: { credits: true } } } },
+      // The soft-delete extension does NOT filter nested includes, so filter
+      // deletedAt manually — otherwise soft-deleted annexes/works leak into the
+      // generated PDF's list of works being sold. Mirrors getContractDetail.
+      annexes: {
+        where: { deletedAt: null },
+        include: { works: { where: { deletedAt: null }, include: { credits: true } } },
+      },
     },
   })
   if (!k) throw new Error('contract not found')
