@@ -13,10 +13,14 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic'
 
-/** Returns a short Arabic label describing where a document is attached. */
+/**
+ * Returns a short Arabic label describing where a document is attached. The
+ * `contract`/`annex` context is only present for ADMIN/LEGAL (sensitive docs);
+ * for other roles those keys are absent and we fall back to folder or a dash.
+ */
 function contextLabel(doc: {
-  contract: { client: { stageName: string | null; legalName: string } | null } | null
-  annex: { number: number } | null
+  contract?: { client: { stageName: string | null; legalName: string } | null } | null
+  annex?: { number: number } | null
   folder: { name: string } | null
 }): string {
   if (doc.annex) return `ملحق رقم ${doc.annex.number}`
@@ -31,19 +35,37 @@ export default async function DocumentsPage() {
   const role = session.user.role
   const canCreate = can(role, 'create', 'Document')
 
-  const documents = await db.document.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      filename: true,
-      status: true,
-      createdAt: true,
-      // storagePath intentionally excluded — never expose raw fs paths to UI.
-      contract: { select: { client: { select: { stageName: true, legalName: true } } } },
-      annex: { select: { number: true } },
-      folder: { select: { name: true } },
-    },
-  })
+  // Contract/annex documents are ADMIN/LEGAL-only at download (see the
+  // documents/[docId] route). Only surface their client/annex context to those
+  // same roles so the list doesn't re-expose an association the download hides.
+  const canSeeSensitiveContext = ['ADMIN', 'LEGAL'].includes(role)
+
+  // storagePath intentionally excluded everywhere — never expose raw fs paths.
+  // Two explicit selects (a conditional spread defeats Prisma's select
+  // inference and silently widens to the full contract row).
+  const documents = canSeeSensitiveContext
+    ? await db.document.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          filename: true,
+          status: true,
+          createdAt: true,
+          folder: { select: { name: true } },
+          contract: { select: { client: { select: { stageName: true, legalName: true } } } },
+          annex: { select: { number: true } },
+        },
+      })
+    : await db.document.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          filename: true,
+          status: true,
+          createdAt: true,
+          folder: { select: { name: true } },
+        },
+      })
 
   return (
     <section className="space-y-8">

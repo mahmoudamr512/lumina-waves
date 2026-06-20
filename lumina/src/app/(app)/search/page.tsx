@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
@@ -28,6 +29,8 @@ interface Hit {
   title: string
   subtitle?: string
   href: string
+  /** True for the secured /documents/[id] file route → plain anchor, not <Link>. */
+  external?: boolean
 }
 
 interface Group {
@@ -65,7 +68,24 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             where: { title: contains },
             take: 20,
             orderBy: { createdAt: 'desc' },
-            include: { annex: { include: { contract: { include: { client: true } } } } },
+            // Narrow select: never load contract financial fields here (this page
+            // bypasses the redacting service layer). deletedAt is pulled so we can
+            // drop works whose parent annex/contract was soft-deleted.
+            select: {
+              id: true,
+              title: true,
+              annex: {
+                select: {
+                  deletedAt: true,
+                  contract: {
+                    select: {
+                      deletedAt: true,
+                      client: { select: { stageName: true, legalName: true } },
+                    },
+                  },
+                },
+              },
+            },
           })
         : Promise.resolve([]),
       can(role, 'read', 'Document')
@@ -96,7 +116,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         label: 'الأعمال',
         icon: <IconWorks className="h-4 w-4" />,
         hits: workRows.map((w) => {
-          const client = w.annex && !w.annex.deletedAt ? w.annex.contract?.client : null
+          // Only surface the client when neither the annex nor its contract is
+          // soft-deleted (soft-delete is non-cascading, so check both levels).
+          const annex = w.annex && !w.annex.deletedAt ? w.annex : null
+          const contract = annex?.contract && !annex.contract.deletedAt ? annex.contract : null
+          const client = contract?.client ?? null
           return {
             id: w.id,
             title: w.title,
@@ -117,6 +141,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           title: d.title,
           subtitle: d.clientName,
           href: `/documents/${d.id}`,
+          external: true,
         })),
       })
     }
@@ -167,18 +192,29 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   <span className="text-subtle">({group.hits.length})</span>
                 </h2>
                 <ul className="space-y-3">
-                  {group.hits.map((hit) => (
-                    <li key={hit.id}>
-                      <a href={hit.href} className="block rounded-xl focus-ring">
-                        <Card interactive>
-                          <CardBody>
-                            <p className="font-medium text-foreground">{hit.title}</p>
-                            {hit.subtitle && <p className="mt-0.5 text-xs text-muted">{hit.subtitle}</p>}
-                          </CardBody>
-                        </Card>
-                      </a>
-                    </li>
-                  ))}
+                  {group.hits.map((hit) => {
+                    const card = (
+                      <Card interactive>
+                        <CardBody>
+                          <p className="font-medium text-foreground">{hit.title}</p>
+                          {hit.subtitle && <p className="mt-0.5 text-xs text-muted">{hit.subtitle}</p>}
+                        </CardBody>
+                      </Card>
+                    )
+                    return (
+                      <li key={hit.id}>
+                        {hit.external ? (
+                          <a href={hit.href} className="block rounded-xl focus-ring">
+                            {card}
+                          </a>
+                        ) : (
+                          <Link href={hit.href} className="block rounded-xl focus-ring">
+                            {card}
+                          </Link>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             </FadeIn>

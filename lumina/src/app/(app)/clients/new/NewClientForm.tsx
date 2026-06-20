@@ -17,15 +17,15 @@ export function NewClientForm() {
   const [state, formAction, pending] = useActionState(addClient, initialState)
   const router = useRouter()
   const { toast } = useToast()
-  const handled = useRef(false)
+  const handled = useRef<AddClientState | null>(null)
 
   useEffect(() => {
-    if (state.ok && !handled.current) {
-      handled.current = true
+    if (state.ok && handled.current !== state) {
+      handled.current = state
       toast({ title: 'تم حفظ العميل', variant: 'success' })
       router.push('/clients')
     }
-  }, [state.ok, toast, router])
+  }, [state, toast, router])
 
   return (
     <form action={formAction} className="space-y-6" noValidate>

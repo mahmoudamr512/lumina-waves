@@ -42,15 +42,38 @@ export function Dialog({
     const { overflow } = document.body.style
     document.body.style.overflow = 'hidden'
 
+    const focusableSelector =
+      'input, textarea, select, button, [href], [tabindex]:not([tabindex="-1"])'
+
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      // Trap Tab/Shift+Tab within the dialog so keyboard focus can't escape to
+      // the (inert) background while the modal is open.
+      if (e.key !== 'Tab') return
+      const focusable = Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [],
+      ).filter((el) => !el.hasAttribute('disabled'))
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const activeInPanel = panelRef.current?.contains(document.activeElement)
+      if (e.shiftKey) {
+        if (document.activeElement === first || !activeInPanel) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else if (document.activeElement === last || !activeInPanel) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener('keydown', onKeyDown)
 
     // Move focus into the dialog.
-    const focusTarget = panelRef.current?.querySelector<HTMLElement>(
-      'input, textarea, select, button, [href], [tabindex]:not([tabindex="-1"])',
-    )
+    const focusTarget = panelRef.current?.querySelector<HTMLElement>(focusableSelector)
     focusTarget?.focus()
 
     return () => {

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
 import { auth } from '@/lib/auth'
+import { can } from '@/lib/authz'
 import { getWork } from '@/services/works'
 import { GRANT_TYPES } from '@/lib/rights'
 import { FadeIn } from '@/components/motion'
@@ -22,6 +23,7 @@ export default async function WorkDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params
   const session = await auth()
   if (!session?.user) redirect('/login')
+  if (!can(session.user.role, 'read', 'Work')) notFound()
 
   const work = await getWork(id)
   if (!work) notFound()

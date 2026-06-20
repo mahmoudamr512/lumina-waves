@@ -64,7 +64,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            role="status"
+            role={t.variant === 'error' ? 'alert' : 'status'}
             className={cn(
               'pointer-events-auto rounded-lg border bg-surface-raised px-4 py-3 shadow-xl',
               VARIANT_STYLES[t.variant ?? 'info'],
