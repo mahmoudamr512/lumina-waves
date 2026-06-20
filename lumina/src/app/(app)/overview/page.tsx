@@ -48,6 +48,8 @@ export default async function OverviewPage() {
   ].filter((s) => s.value >= 0)
 
   const canCreateClient = can(role, 'create', 'Client')
+  const canCreateDocument = can(role, 'create', 'Document')
+  const hasQuickActions = canCreateClient || canCreateDocument
 
   return (
     <section className="space-y-10">
@@ -76,23 +78,25 @@ export default async function OverviewPage() {
       </Stagger>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardBody className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">إجراءات سريعة</h2>
-            <div className="flex flex-wrap gap-3">
-              {canCreateClient && (
-                <Link href="/clients/new" className={buttonClasses('primary', 'sm')}>
-                  <IconPlus className="h-4 w-4" /> عميل جديد
-                </Link>
-              )}
-              {can(role, 'create', 'Document') && (
-                <Link href="/documents/upload" className={buttonClasses('secondary', 'sm')}>
-                  <IconDocuments className="h-4 w-4" /> رفع مستند
-                </Link>
-              )}
-            </div>
-          </CardBody>
-        </Card>
+        {hasQuickActions && (
+          <Card>
+            <CardBody className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">إجراءات سريعة</h2>
+              <div className="flex flex-wrap gap-3">
+                {canCreateClient && (
+                  <Link href="/clients/new" className={buttonClasses('primary', 'sm')}>
+                    <IconPlus className="h-4 w-4" /> عميل جديد
+                  </Link>
+                )}
+                {canCreateDocument && (
+                  <Link href="/documents/upload" className={buttonClasses('secondary', 'sm')}>
+                    <IconDocuments className="h-4 w-4" /> رفع مستند
+                  </Link>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        )}
 
         {recentClients.length > 0 && (
           <Card>
