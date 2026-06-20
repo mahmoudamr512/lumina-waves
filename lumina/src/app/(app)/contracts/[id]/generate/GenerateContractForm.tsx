@@ -1,7 +1,8 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
 import { generateContract, type GenerateContractState } from './actions'
+import { Button, buttonClasses, useToast } from '@/components/ui'
 
 interface Props {
   contractId: string
@@ -11,24 +12,31 @@ const initialState: GenerateContractState = { error: null }
 
 /**
  * Triggers PDF generation for the given contract. Uses useActionState so that
- * server-side errors (AuthzError, not-found, etc.) surface as friendly Arabic
- * messages without ever exposing a stack trace. On success shows a download link.
+ * server-side errors surface as friendly Arabic messages without exposing a
+ * stack trace. On success it toasts and shows a download link.
  */
 export function GenerateContractForm({ contractId }: Props) {
   const action = generateContract.bind(null, contractId)
   const [state, formAction, pending] = useActionState(action, initialState)
+  const { toast } = useToast()
+  const handled = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (state.docId && handled.current !== state.docId) {
+      handled.current = state.docId
+      toast({ title: 'تم إنشاء مسودة العقد', variant: 'success' })
+    }
+  }, [state.docId, toast])
 
   if (state.docId) {
     return (
-      <div className="rounded-xl border border-gold-400/30 bg-gold-400/5 p-5 space-y-3 text-center">
-        <p className="text-sm text-gold-300 font-medium">
-          تم إنشاء مسودة العقد بنجاح.
-        </p>
+      <div className="space-y-3 rounded-xl border border-success/30 bg-success/5 p-5 text-center">
+        <p className="text-sm font-medium text-success">تم إنشاء مسودة العقد بنجاح.</p>
         <a
           href={`/contracts/${contractId}/generate/${state.docId}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg border border-gold-400 px-4 py-2.5 text-sm font-semibold text-gold-300 transition hover:bg-gold-400/10 focus:outline-none focus:ring-2 focus:ring-gold-200"
+          className={buttonClasses('secondary')}
         >
           تحميل مسودة PDF
         </a>
@@ -39,29 +47,18 @@ export function GenerateContractForm({ contractId }: Props) {
   return (
     <form action={formAction} className="space-y-4">
       <p className="text-sm text-muted">
-        بالضغط على الزر أدناه، سيتم توليد ملف PDF للعقد وحفظه كمسودة. تأكّد من مراجعة
-        البيانات أعلاه قبل المتابعة.
+        بالضغط على الزر أدناه، سيتم توليد ملف PDF للعقد وحفظه كمسودة. تأكّد من مراجعة البيانات أعلاه قبل المتابعة.
       </p>
 
       {state.error && (
-        <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
+        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
           {state.error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold-400 px-4 py-3 text-sm font-semibold text-ink transition hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-200 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {pending && (
-          <span
-            aria-hidden="true"
-            className="h-4 w-4 animate-spin rounded-full border-2 border-ink/40 border-t-ink motion-reduce:animate-none"
-          />
-        )}
+      <Button type="submit" loading={pending} className="w-full">
         {pending ? 'جارٍ الإنشاء…' : 'إنشاء مسودة العقد'}
-      </button>
+      </Button>
     </form>
   )
 }

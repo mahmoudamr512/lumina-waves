@@ -1,12 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { uploadDocument } from '@/services/documents'
 import { AuthzError } from '@/lib/errors'
 
 export interface UploadDocumentState {
   error: string | null
+  /** Set on success — the form toasts and navigates to /documents. */
+  ok?: boolean
 }
 
 export async function uploadDocumentAction(
@@ -33,5 +34,5 @@ export async function uploadDocumentAction(
   }
 
   revalidatePath('/documents')
-  redirect('/documents')
+  return { error: null, ok: true }
 }

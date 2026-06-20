@@ -1,12 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createWork } from '@/services/works'
 import { AuthzError } from '@/lib/errors'
 
 export interface AddWorkState {
   error: string | null
+  /** Set on success — the form toasts and navigates. */
+  ok?: boolean
 }
 
 export async function addWork(
@@ -40,5 +41,5 @@ export async function addWork(
   }
 
   revalidatePath('/clients/' + clientId)
-  redirect('/clients/' + clientId)
+  return { error: null, ok: true }
 }
