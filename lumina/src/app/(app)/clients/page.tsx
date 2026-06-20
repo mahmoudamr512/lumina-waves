@@ -5,7 +5,8 @@ import { can } from '@/lib/authz'
 import { listClients } from '@/services/clients'
 import { Breadcrumb, buttonClasses, EmptyState, IconClients, IconPlus } from '@/components/ui'
 import { FadeIn } from '@/components/motion'
-import { ClientsGrid, type ClientCard } from './ClientsGrid'
+import { type ClientCard } from './ClientsGrid'
+import { ClientsBrowser } from './ClientsBrowser'
 
 export const metadata = {
   title: 'العملاء | Lumina Waves',
@@ -69,7 +70,7 @@ export default async function ClientsPage() {
           }
         />
       ) : (
-        <ClientsGrid clients={cards} />
+        <ClientsBrowser clients={cards} />
       )}
     </section>
   )
