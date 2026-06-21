@@ -2,12 +2,23 @@ import { db } from '@/lib/db'
 import { Prisma } from '@/generated/prisma/client'
 
 export type AuditInput = {
-  actorId: string
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'PURGE'
+  actorId: string | null
+  action:
+    | 'CREATE'
+    | 'UPDATE'
+    | 'DELETE'
+    | 'RESTORE'
+    | 'PURGE'
+    | 'LOGIN'
+    | 'LOGOUT'
+    | 'LOGIN_FAILED'
+    | 'DOWNLOAD'
+    | 'COMMENT'
   entity: string
   entityId: string
   before?: unknown
   after?: unknown
+  meta?: unknown
 }
 
 // Prisma's nullable Json? field accepts `NullableJsonNullValueInput | InputJsonValue`.
@@ -23,6 +34,7 @@ export async function writeAudit(i: AuditInput) {
       entityId: i.entityId,
       before: (i.before ?? Prisma.JsonNull) as NullableJson,
       after: (i.after ?? Prisma.JsonNull) as NullableJson,
+      meta: (i.meta ?? Prisma.JsonNull) as NullableJson,
     },
   })
 }
