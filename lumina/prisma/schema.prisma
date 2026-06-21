@@ -72,10 +72,25 @@ model User {
   avatarPath   String?
   disabledAt   DateTime?
   sessions     UserSession[]
+  comments     Comment[]
   createdAt    DateTime      @default(now())
   deletedAt    DateTime?
   purgeAfter   DateTime?
   purgedAt     DateTime?
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  author    User      @relation(fields: [authorId], references: [id])
+  authorId  String
+  entity    String // 'Client' | 'MasterContract' | 'Work' | 'Document'
+  entityId  String
+  body      String
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([entity, entityId, createdAt])
 }
 
 model UserSession {
@@ -220,11 +235,15 @@ model Folder {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  actorId   String
-  action    String // CREATE|UPDATE|DELETE|RESTORE|PURGE
+  actorId   String? // null for system/anonymous events (e.g. failed login)
+  action    String // CREATE|UPDATE|DELETE|RESTORE|PURGE|LOGIN|LOGOUT|LOGIN_FAILED|DOWNLOAD|COMMENT
   entity    String // "Client" | "MasterContract" | ...
   entityId  String
   before    Json?
   after     Json?
+  meta      Json? // filename, attempted email, ip, etc.
   createdAt DateTime @default(now())
+
+  @@index([entity, entityId, createdAt])
+  @@index([createdAt])
 }

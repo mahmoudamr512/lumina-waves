@@ -5,6 +5,8 @@ import { can } from '@/lib/authz'
 import { db } from '@/lib/db'
 import { Card, CardBody, buttonClasses, IconPlus, IconDocuments } from '@/components/ui'
 import { FadeIn, Stagger, StaggerItem } from '@/components/motion'
+import { listGlobalActivity } from '@/services/activity'
+import { HistoryList } from '@/components/activity/HistoryList'
 
 export const metadata = { title: 'نظرة عامة | Lumina Waves' }
 export const dynamic = 'force-dynamic'
@@ -50,6 +52,9 @@ export default async function OverviewPage() {
   const canCreateClient = can(role, 'create', 'Client')
   const canCreateDocument = can(role, 'create', 'Document')
   const hasQuickActions = canCreateClient || canCreateDocument
+
+  // Admin-only recent activity (global feed is ADMIN-gated).
+  const recentActivity = role === 'ADMIN' ? (await listGlobalActivity({ take: 6 })).items : []
 
   return (
     <section className="space-y-10">
@@ -121,6 +126,22 @@ export default async function OverviewPage() {
           </Card>
         )}
       </div>
+
+      {recentActivity.length > 0 && (
+        <FadeIn delay={0.1}>
+          <Card>
+            <CardBody className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-foreground">أحدث النشاط</h2>
+                <Link href="/activity" className="text-sm text-gold-200 hover:underline focus-ring rounded">
+                  عرض الكل
+                </Link>
+              </div>
+              <HistoryList items={recentActivity} />
+            </CardBody>
+          </Card>
+        </FadeIn>
+      )}
     </section>
   )
 }

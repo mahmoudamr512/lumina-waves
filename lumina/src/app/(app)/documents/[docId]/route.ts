@@ -5,6 +5,7 @@ import path from 'node:path'
 import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
 import { db } from '@/lib/db'
+import { writeAudit } from '@/lib/audit'
 
 const STORAGE_ROOT = path.resolve(process.env.STORAGE_DIR ?? './.storage')
 // Documents linked to a contract or annex may embed sensitive data (National
@@ -67,6 +68,18 @@ export async function GET(
   }
   if (real !== STORAGE_ROOT && !real.startsWith(STORAGE_ROOT + path.sep)) {
     return new NextResponse('Not Found', { status: 404 })
+  }
+
+  try {
+    await writeAudit({
+      actorId: session.user.id,
+      action: 'DOWNLOAD',
+      entity: 'Document',
+      entityId: docId,
+      meta: { filename: doc.filename },
+    })
+  } catch (err) {
+    console.warn('[document/download] audit failed (best-effort):', err)
   }
 
   const contentType = contentTypeFor(doc.filename)
