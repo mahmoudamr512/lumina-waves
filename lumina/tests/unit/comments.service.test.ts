@@ -88,6 +88,23 @@ test('deleteComment: author or admin can soft-delete, others cannot', async () =
   expect((await db.comment.findUnique({ where: { id: id2 } }))?.deletedAt).not.toBeNull()
 })
 
+test('addComment auto-watches author + mention and notifies the mentioned user', async () => {
+  const author = await mkUser()
+  const mentioned = await db.user.create({
+    data: { email: email(), name: `سارة${RUN}`, role: 'VIEWER', passwordHash: await hashPassword('pw') },
+  })
+  actAs(author.id)
+  const entityId = eid()
+  await addComment('Client', entityId, `أهلا @سارة${RUN}`, [mentioned.id])
+  // The mentioned user gets a MENTION notification.
+  const notif = await db.notification.findFirst({
+    where: { recipientId: mentioned.id, entity: 'Client', entityId, type: 'MENTION' },
+  })
+  expect(notif).not.toBeNull()
+  // Both author and mentioned are now watchers.
+  expect(await db.watcher.count({ where: { entity: 'Client', entityId } })).toBe(2)
+})
+
 test('listComments excludes deleted and flags mine', async () => {
   const owner = await mkUser()
   const other = await mkUser()
