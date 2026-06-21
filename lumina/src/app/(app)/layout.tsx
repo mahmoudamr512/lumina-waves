@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { auth } from '@/lib/auth'
+import { loadSession } from '@/lib/session'
+import { db } from '@/lib/db'
 import { AppSidebarShell } from '@/components/layout'
 import {
   Sidebar,
@@ -11,6 +12,7 @@ import {
   IconWorks,
   IconDocuments,
   IconSearch,
+  IconUsers,
   type SidebarItem,
 } from '@/components/ui'
 
@@ -30,17 +32,29 @@ const NAV_ITEMS: SidebarItem[] = [
  * every page.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
+  // loadSession enforces the revocable session (revoked/expired/disabled → null).
+  const s = await loadSession()
+  if (!s) redirect('/login')
+  const me = await db.user.findUnique({
+    where: { id: s.id },
+    select: { name: true, email: true, avatarPath: true },
+  })
+
+  // Admin-only User Management nav entry.
+  const items: SidebarItem[] =
+    s.role === 'ADMIN'
+      ? [...NAV_ITEMS, { href: '/users', key: 'users', icon: <IconUsers /> }]
+      : NAV_ITEMS
 
   return (
     <ToastProvider>
       <AppSidebarShell
         nav={
           <Sidebar
-            name={session.user.name ?? session.user.email ?? 'مستخدم'}
-            role={session.user.role}
-            items={NAV_ITEMS}
+            name={me?.name ?? me?.email ?? 'مستخدم'}
+            role={s.role}
+            items={items}
+            avatarUrl={me?.avatarPath ? `/avatars/${s.id}` : undefined}
           />
         }
       >

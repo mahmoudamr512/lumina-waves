@@ -42,6 +42,15 @@ export const IconClients = (p: IconProps) => (
   </Svg>
 )
 
+export const IconUsers = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="8.5" cy="8" r="3" />
+    <path d="M3 19a5.5 5.5 0 0 1 11 0" />
+    <path d="M16 5.6a3 3 0 0 1 0 5.6" />
+    <path d="M17.5 14a5 5 0 0 1 3.5 4.8" />
+  </Svg>
+)
+
 export const IconContracts = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 3h8l4 4v14H6z" />
