@@ -101,3 +101,32 @@ Migrations apply automatically on the web container's next boot.
 - **Scaling:** single-node by design. To run multiple web nodes later, move file
   storage to S3/R2 (the storage layer would need an adapter) and use managed
   Postgres/Redis/Meili.
+
+---
+
+## Continuous deploy (optional, one-push releases)
+
+`.github/workflows/deploy.yml` SSHes into the VPS and runs
+`git pull && docker compose up -d --build` — but **only after CI passes on
+`main`** (or when triggered manually from the Actions tab). It safely **no-ops**
+until you set the secrets below, so it won't fail before the server exists.
+
+**One-time setup:**
+
+1. On the VPS, create a deploy SSH key and authorize it:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/deploy -N ""
+   cat ~/.ssh/deploy.pub >> ~/.ssh/authorized_keys
+   cat ~/.ssh/deploy           # copy this PRIVATE key for the next step
+   ```
+2. In GitHub → repo **Settings → Secrets and variables → Actions**, add:
+   - `DEPLOY_HOST` — server IP or hostname
+   - `DEPLOY_USER` — the SSH user (e.g. `root` or your deploy user)
+   - `DEPLOY_SSH_KEY` — the **private** key from step 1
+   - `DEPLOY_PORT` — optional, defaults to `22`
+3. Ensure the server has the repo at **`/opt/lumina`** with `.env` present (from
+   the steps above). Deploys then run automatically on every green `main`, or via
+   **Actions → Deploy → Run workflow**.
+
+The remote command is a fixed string and all inputs come from secrets — no
+untrusted data is interpolated into the workflow.
