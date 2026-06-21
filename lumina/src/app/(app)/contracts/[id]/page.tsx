@@ -243,7 +243,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
             path={`/contracts/${id}`}
             activity={panel.activity}
             comments={panel.comments}
-            isAdmin={panel.isAdmin}
+            isAdmin={panel.isAdmin} isWatching={panel.isWatching}
           />
         </CardBody>
       </Card>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { ActivityItem } from '@/services/activity'
 import { CommentThread, type CommentView } from './CommentThread'
 import { HistoryList } from './HistoryList'
+import { WatchToggle } from './WatchToggle'
 import { cn } from '@/lib/cn'
 
 type Tab = 'comments' | 'history'
@@ -19,6 +20,7 @@ export function ActivityPanel({
   activity,
   comments,
   isAdmin,
+  isWatching,
 }: {
   entity: string
   entityId: string
@@ -26,6 +28,7 @@ export function ActivityPanel({
   activity: ActivityItem[]
   comments: CommentView[]
   isAdmin: boolean
+  isWatching: boolean
 }) {
   const [tab, setTab] = useState<Tab>('comments')
 
@@ -46,9 +49,12 @@ export function ActivityPanel({
 
   return (
     <div className="space-y-6">
-      <div role="tablist" className="flex gap-1 border-b border-line">
-        {tabBtn('comments', 'التعليقات', comments.length)}
-        {tabBtn('history', 'السجل', activity.length)}
+      <div className="flex items-center justify-between gap-2 border-b border-line">
+        <div role="tablist" className="flex gap-1">
+          {tabBtn('comments', 'التعليقات', comments.length)}
+          {tabBtn('history', 'السجل', activity.length)}
+        </div>
+        <WatchToggle entity={entity} entityId={entityId} path={path} watching={isWatching} />
       </div>
       {tab === 'comments' ? (
         <CommentThread entity={entity} entityId={entityId} path={path} comments={comments} isAdmin={isAdmin} />
