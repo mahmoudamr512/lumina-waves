@@ -5,7 +5,6 @@ vi.mock('@/lib/auth', () => ({ requireUser: vi.fn() }))
 import { requireUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/password'
-import { ValidationError } from '@/lib/errors'
 import { createSessionRecord } from '@/lib/session'
 import {
   createUser,
