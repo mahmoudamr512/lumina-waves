@@ -51,6 +51,12 @@ export const IconUsers = (p: IconProps) => (
   </Svg>
 )
 
+export const IconActivity = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 12h4l2.5 7 5-14 2.5 7H21" />
+  </Svg>
+)
+
 export const IconContracts = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 3h8l4 4v14H6z" />

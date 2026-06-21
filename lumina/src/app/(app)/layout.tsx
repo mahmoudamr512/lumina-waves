@@ -13,6 +13,7 @@ import {
   IconDocuments,
   IconSearch,
   IconUsers,
+  IconActivity,
   type SidebarItem,
 } from '@/components/ui'
 
@@ -43,7 +44,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Admin-only User Management nav entry.
   const items: SidebarItem[] =
     s.role === 'ADMIN'
-      ? [...NAV_ITEMS, { href: '/users', key: 'users', icon: <IconUsers /> }]
+      ? [
+          ...NAV_ITEMS,
+          { href: '/users', key: 'users', icon: <IconUsers /> },
+          { href: '/activity', key: 'activity', icon: <IconActivity /> },
+        ]
       : NAV_ITEMS
 
   return (
