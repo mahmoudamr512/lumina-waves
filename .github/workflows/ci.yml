@@ -55,6 +55,15 @@ jobs:
       - run: npm run test
       - run: npm run build
 
+  docker:
+    name: Docker image build (deploy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Validates the production deploy image (Dockerfile) builds cleanly:
+      # npm ci → prisma generate (postinstall) → next build → Chromium for PDF.
+      - run: docker build -t lumina:ci ./lumina
+
   e2e:
     name: End-to-end (Playwright)
     runs-on: ubuntu-latest
