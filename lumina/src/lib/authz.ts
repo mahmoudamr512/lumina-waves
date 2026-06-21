@@ -1,12 +1,15 @@
 // src/lib/authz.ts
 import type { Role } from '@/generated/prisma/client'
 export type Action = 'create'|'read'|'update'|'delete'|'purge'
-export type Entity = 'Client'|'MasterContract'|'Annex'|'Work'|'Document'|'Trash'
+export type Entity = 'Client'|'MasterContract'|'Annex'|'Work'|'Document'|'Trash'|'User'
 
 export function can(role: Role, action: Action, entity: Entity): boolean {
   if (role === 'ADMIN') return true
   // Trash is ADMIN-only for all non-ADMIN roles (purge, hard-delete, restore all admin-gated)
   if (entity === 'Trash') return false
+  // User management (managing other users) is ADMIN-only; self-service is gated
+  // separately by ownership, not via this entity.
+  if (entity === 'User') return false
   if (action === 'delete') return false          // delete is Admin-only (trash) — see trash service
   if (action === 'purge') return false
   switch (role) {
