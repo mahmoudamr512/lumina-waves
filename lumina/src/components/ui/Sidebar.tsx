@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { signOut } from 'next-auth/react'
 import { useState, type ReactNode } from 'react'
+import { signOutAction } from '@/lib/session-actions'
 import { useTranslations } from 'next-intl'
 import type { Role } from '@/generated/prisma/client'
 import { LuminaLogo } from '@/components/brand'
@@ -23,6 +23,8 @@ export interface SidebarProps {
   name: string
   role: Role
   items: SidebarItem[]
+  /** URL to the signed-in user's avatar, if any (else initials fallback). */
+  avatarUrl?: string
 }
 
 /**
@@ -32,7 +34,7 @@ export interface SidebarProps {
  * the top; the signed-in user, locale switcher, and sign-out are pinned to the
  * bottom.
  */
-export function Sidebar({ name, role, items }: SidebarProps) {
+export function Sidebar({ name, role, items, avatarUrl }: SidebarProps) {
   const pathname = usePathname()
   const t = useTranslations('nav')
   const tAuth = useTranslations('auth')
@@ -66,19 +68,34 @@ export function Sidebar({ name, role, items }: SidebarProps) {
 
   const footer = (
     <div className="border-t border-line px-3 py-4">
-      <div className="mb-3 px-1">
-        <p className="truncate text-sm font-medium text-foreground">{name}</p>
-        <p className="text-xs text-gold-600">{ROLE_LABELS[role]}</p>
-      </div>
+      <Link
+        href="/account"
+        onClick={() => setOpen(false)}
+        className="mb-3 flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition hover:bg-white/5 focus-ring"
+      >
+        <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-gold-400/10 text-xs font-semibold text-gold-200">
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            name.trim().charAt(0) || '؟'
+          )}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium text-foreground">{name}</span>
+          <span className="block text-xs text-gold-600">{ROLE_LABELS[role]}</span>
+        </span>
+      </Link>
       <div className="flex items-center justify-between gap-2">
         <LocaleSwitcher />
-        <button
-          type="button"
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          className="rounded-md border border-line-strong px-3 py-1.5 text-sm text-muted transition hover:border-gold-400/40 hover:text-foreground focus-ring"
-        >
-          {tAuth('signOut')}
-        </button>
+        <form action={signOutAction}>
+          <button
+            type="submit"
+            className="rounded-md border border-line-strong px-3 py-1.5 text-sm text-muted transition hover:border-gold-400/40 hover:text-foreground focus-ring"
+          >
+            {tAuth('signOut')}
+          </button>
+        </form>
       </div>
     </div>
   )

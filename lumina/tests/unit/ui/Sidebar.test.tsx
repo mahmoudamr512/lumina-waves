@@ -4,8 +4,8 @@ import { render, screen } from '@testing-library/react'
 vi.mock('next/navigation', () => ({
   usePathname: () => '/clients',
 }))
-vi.mock('next-auth/react', () => ({
-  signOut: vi.fn(),
+vi.mock('@/lib/session-actions', () => ({
+  signOutAction: vi.fn(),
 }))
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,

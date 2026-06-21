@@ -63,15 +63,33 @@ enum ReleaseStatus {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String        @id @default(cuid())
+  email        String        @unique
   name         String
   passwordHash String
-  role         Role      @default(VIEWER)
-  createdAt    DateTime  @default(now())
+  role         Role          @default(VIEWER)
+  phone        String?
+  avatarPath   String?
+  disabledAt   DateTime?
+  sessions     UserSession[]
+  createdAt    DateTime      @default(now())
   deletedAt    DateTime?
   purgeAfter   DateTime?
   purgedAt     DateTime?
+}
+
+model UserSession {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id])
+  userId     String
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  userAgent  String?
+  ip         String?
+
+  @@index([userId])
 }
 
 model Client {
