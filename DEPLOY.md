@@ -1,288 +1,103 @@
-# Lumina Waves — Vultr Deployment Runbook
+# Lumina Waves — Vultr Deployment Runbook (Docker Compose)
 
-This document covers provisioning a production server on Vultr running Ubuntu 24.04 LTS.
+One VPS runs the whole stack via Docker Compose: the **web app**, the
+**background worker**, **Postgres**, **Redis**, **Meilisearch**, and **Caddy**
+(automatic HTTPS). Files (PDFs, uploads, avatars) live on a persistent Docker
+volume on the server's disk — **no S3 required**.
 
----
-
-## 1. Provision the Server
-
-- **Plan:** Cloud Compute, Regular Performance — minimum 2 vCPU / 4 GB RAM
-- **OS:** Ubuntu 24.04 LTS (x86_64)
-- **Firewall:** open ports 22 (SSH), 80, 443
-
-SSH in as root and create a deploy user:
-
-```bash
-adduser lumina
-usermod -aG sudo lumina
-su - lumina
-```
+> Updating an existing deploy? Jump to [Updating](#updating).
 
 ---
 
-## 2. Install System Dependencies
+## 1. Provision the server
+- Vultr → **Cloud Compute**, **Ubuntu 24.04 LTS**, **2 GB RAM minimum**
+  (4 GB is comfortable — Chromium PDF rendering + Meilisearch are the memory users).
+- Firewall: allow **22 (SSH), 80, 443**.
+- Note the public **IP**.
 
+## 2. Point your domain (Namecheap)
+- Namecheap → your domain → **Advanced DNS** → add an **A record**:
+  Host `@`, Value `<server IP>`. (Optional: a second A record for `www`.)
+- Wait for DNS to resolve; Caddy issues the TLS certificate automatically once it does.
+
+## 3. Install Docker
 ```bash
-sudo apt-get update && sudo apt-get upgrade -y
-
-# Node.js 22 via NodeSource
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Process manager
-sudo npm install -g pm2
-
-# Arabic fonts + Tesseract OCR with Arabic language pack
-sudo apt-get install -y fonts-hosny-amiri tesseract-ocr tesseract-ocr-ara
-
-# Build tools (needed for native addons)
-sudo apt-get install -y build-essential git
+curl -fsSL https://get.docker.com | sh
 ```
 
----
-
-## 3. Infrastructure Services (Postgres, Redis, Meilisearch)
-
-Use Docker Compose for simplicity. Install Docker first:
-
+## 4. (2 GB boxes) add swap so the build / Chromium / Meili don't OOM
 ```bash
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker lumina
-# Re-login so group membership takes effect
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ```
 
-Create `/home/lumina/docker-compose.yml`:
-
-```yaml
-services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: lumina
-      POSTGRES_USER: lumina
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432"
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:6379:6379"
-
-  meilisearch:
-    image: getmeili/meilisearch:v1.7
-    restart: unless-stopped
-    environment:
-      MEILI_MASTER_KEY: ${MEILI_KEY}
-    volumes:
-      - meilidata:/meili_data
-    ports:
-      - "127.0.0.1:7700:7700"
-
-volumes:
-  pgdata:
-  meilidata:
+## 5. Get the code
+```bash
+git clone <your-repo-url> /opt/lumina
+cd /opt/lumina
 ```
 
-Start services:
-
+## 6. Configure secrets
 ```bash
-cd /home/lumina
-POSTGRES_PASSWORD=<strong-password> MEILI_KEY=<strong-key> docker compose up -d
-```
-
----
-
-## 4. Deploy the Application
-
-```bash
-cd /home/lumina
-git clone https://github.com/<org>/lumina-waves.git app
-cd app/lumina
-npm ci
-```
-
----
-
-## 5. Configure Environment
-
-Copy `.env.example` to `.env` and fill in all values:
-
-```bash
-cp .env.example .env
+cp .env.production.example .env
+openssl rand -base64 32          # use for AUTH_SECRET
 nano .env
 ```
+Fill in: `DOMAIN`, `POSTGRES_PASSWORD` (and the matching `DATABASE_URL`),
+`AUTH_SECRET`, `SEED_ADMIN_*`, `MEILI_KEY`, and the **real** VAPID keys
+(`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+`VAPID_SUBJECT` — generate with `npx web-push generate-vapid-keys`). Optional:
+SMTP and Google Drive backup.
 
-Required variables:
-
-```dotenv
-DATABASE_URL="postgresql://lumina:<postgres-password>@localhost:5432/lumina"
-REDIS_URL="redis://localhost:6379"
-MEILI_HOST="http://localhost:7700"
-MEILI_KEY="<your-meili-master-key>"
-
-AUTH_SECRET="<random-64-char-string>"          # openssl rand -hex 32
-
-SEED_ADMIN_EMAIL="admin@luminawaves.com"
-SEED_ADMIN_PASSWORD="<strong-password>"        # REQUIRED in production
-
-STORAGE_DIR="/home/lumina/storage"
-
-# --- Email (SMTP) ---
-# Currently unconfigured. Fill in to enable transactional email and delete alerts.
-# Any SMTP provider works (SendGrid, Mailgun, Postmark, etc.).
-SMTP_URL="smtp://apikey:<sendgrid-api-key>@smtp.sendgrid.net:587"
-MAIL_FROM="ops@luminawaves.com"
-ALERT_EMAIL="admin@luminawaves.com"            # receives soft-delete notifications
-
-# --- Google Drive backup (optional) ---
-# Leave blank to disable. Fill in both to enable navigable Drive mirror.
-DRIVE_FOLDER_ID=""
-GOOGLE_SERVICE_ACCOUNT_JSON=""
-
-OCR_PROVIDER="tesseract"
-```
-
-Create storage directory:
-
+## 7. Launch
 ```bash
-mkdir -p /home/lumina/storage
+docker compose up -d --build
 ```
+The **web** service runs `prisma migrate deploy` automatically on boot.
+
+> Low-RAM note: if the image build is killed on a 2 GB box, ensure swap (step 4)
+> is on, or build on a temporarily resized instance, then resize back.
+
+## 8. Create the first admin
+```bash
+docker compose exec web npx tsx prisma/seed.ts
+```
+Uses `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `.env`. Log in and change the password.
+
+## 9. Verify
+- `https://<your-domain>` → valid TLS + login page.
+- `docker compose ps` → all services `Up` (db `healthy`).
+- `docker compose logs -f web worker` → no errors.
+- Generate a contract PDF and post a comment to confirm storage + worker + push.
+
+## 10. Backups (do before storing real contracts)
+```bash
+chmod +x scripts/backup.sh
+crontab -e
+# add:
+0 3 * * * cd /opt/lumina && ./scripts/backup.sh >> /var/log/lumina-backup.log 2>&1
+```
+Backups (DB dump + file-storage tar, 14-day retention) land in
+`/opt/lumina/backups`. For off-box safety, configure `rclone` to Cloudflare R2 /
+Backblaze B2 and uncomment the `rclone copy` line in `scripts/backup.sh`. Vultr
+automatic snapshots are a good whole-server safety net too.
 
 ---
 
-## 6. Run Migrations and Seed
-
+## Updating
 ```bash
-cd /home/lumina/app/lumina
-npx prisma migrate deploy
-npx prisma db seed
+cd /opt/lumina && git pull && docker compose up -d --build
 ```
+Migrations apply automatically on the web container's next boot.
 
-The seed creates the initial admin user from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
-
----
-
-## 7. Build the Application
-
-```bash
-cd /home/lumina/app/lumina
-npm run build
-```
-
----
-
-## 8. Start with PM2
-
-```bash
-cd /home/lumina/app/lumina
-
-# Web app (Next.js)
-pm2 start npm --name "lumina-web" -- start
-
-# Background workers (BullMQ: OCR, Drive backup, mail, daily cron)
-pm2 start --name "lumina-worker" -- npm run worker
-
-pm2 save
-pm2 startup   # follow the printed command to enable auto-start on reboot
-```
-
-Verify both processes are running:
-
-```bash
-pm2 status
-```
-
----
-
-## 9. Verify Nightly Trash Expiry
-
-The worker registers a BullMQ repeatable job (`cron` queue, `0 3 * * *` UTC) that calls
-`purgeExpired()` each night, flagging rows past their 3-day recovery window.
-
-Check the cron was registered:
-
-```bash
-# In a Node REPL or a one-off script
-node -e "
-const { Queue } = require('bullmq');
-const q = new Queue('cron', { connection: { url: process.env.REDIS_URL } });
-q.getRepeatableJobs().then(jobs => { console.log(jobs); process.exit(); });
-"
-```
-
-You should see a job with `pattern: '0 3 * * *'`.
-
-Check PM2 logs the next morning:
-
-```bash
-pm2 logs lumina-worker --lines 100 | grep purge
-```
-
----
-
-## 10. Verify Drive Backup (when configured)
-
-After setting `DRIVE_FOLDER_ID` and `GOOGLE_SERVICE_ACCOUNT_JSON` and restarting
-`lumina-worker`, create or update a client via the UI. Within seconds you should see
-a folder appear in the configured Drive root.
-
-Check worker logs:
-
-```bash
-pm2 logs lumina-worker --lines 50 | grep drive
-```
-
----
-
-## 11. Enable SMTP / Transactional Email
-
-1. Obtain SMTP credentials from your provider (SendGrid, Postmark, etc.).
-2. Set `SMTP_URL`, `MAIL_FROM`, and `ALERT_EMAIL` in `.env`.
-3. Restart the web app: `pm2 restart lumina-web`
-4. Soft-delete any entity via the UI — the admin address in `ALERT_EMAIL` should
-   receive an Arabic notification email confirming the 3-day recovery window.
-
----
-
-## 12. Currently Unconfigured (Optional) Features
-
-| Feature | Variables Required | Status |
-|---|---|---|
-| SMTP / transactional email | `SMTP_URL`, `MAIL_FROM`, `ALERT_EMAIL` | Not configured — soft-delete works without it; email is best-effort |
-| Google Drive backup | `DRIVE_FOLDER_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON` | Not configured — mutations succeed without it |
-
-Both features degrade gracefully: the application logs a warning and continues rather than failing the mutation.
-
----
-
-## 13. Reverse Proxy (Nginx + TLS)
-
-```bash
-sudo apt-get install -y nginx certbot python3-certbot-nginx
-sudo certbot --nginx -d luminawaves.com -d www.luminawaves.com
-```
-
-`/etc/nginx/sites-available/lumina`:
-
-```nginx
-server {
-    server_name luminawaves.com www.luminawaves.com;
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/lumina /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
+## Architecture notes
+- **Web** (`next start`) and **worker** (`npm run worker` — OCR, Drive backup,
+  mail, nightly trash-purge cron) run from the same image; both mount the shared
+  `storage` volume so the worker can read uploaded files for OCR.
+- **PDFs** render via Playwright Chromium (baked into the image) and are written
+  to the `storage` volume; the download routes stream them back with RBAC checks.
+- **Optional features** (SMTP email, Google Drive backup) degrade gracefully when
+  their env vars are blank.
+- **Scaling:** single-node by design. To run multiple web nodes later, move file
+  storage to S3/R2 (the storage layer would need an adapter) and use managed
+  Postgres/Redis/Meili.
