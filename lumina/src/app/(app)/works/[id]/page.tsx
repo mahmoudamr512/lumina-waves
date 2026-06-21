@@ -127,7 +127,7 @@ export default async function WorkDetailPage({ params }: { params: Promise<{ id:
             path={`/works/${id}`}
             activity={panel.activity}
             comments={panel.comments}
-            isAdmin={panel.isAdmin}
+            isAdmin={panel.isAdmin} isWatching={panel.isWatching}
           />
         </CardBody>
       </Card>

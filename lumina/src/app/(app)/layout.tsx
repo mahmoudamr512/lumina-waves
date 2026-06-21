@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { loadSession } from '@/lib/session'
 import { db } from '@/lib/db'
+import { unreadCount } from '@/services/notifications'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { AppSidebarShell } from '@/components/layout'
 import {
   Sidebar,
@@ -51,6 +53,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         ]
       : NAV_ITEMS
 
+  const unread = await unreadCount().catch(() => 0)
+
   return (
     <ToastProvider>
       <AppSidebarShell
@@ -60,6 +64,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             role={s.role}
             items={items}
             avatarUrl={me?.avatarPath ? `/avatars/${s.id}` : undefined}
+            bell={<NotificationBell initialCount={unread} />}
           />
         }
       >

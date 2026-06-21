@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { postComment, editCommentDirect, deleteCommentDirect, type CommentActionState } from './actions'
 import { useActionToast } from '@/components/forms/useActionToast'
 import { Button, Textarea, buttonClasses, EmptyState, IconClients } from '@/components/ui'
+import { MentionTextarea } from './MentionTextarea'
 import { timeAgoAr, formatDateAr } from '@/lib/labels'
 
 export interface CommentView {
@@ -44,14 +45,14 @@ export function CommentThread({
   isAdmin: boolean
 }) {
   const { state, formAction, pending } = useActionToast(postComment, initial, 'تم نشر التعليق')
+  const [editingId, setEditingId] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const cleared = useRef<CommentActionState | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (state.ok && cleared.current !== state) {
       cleared.current = state
-      formRef.current?.reset()
+      formRef.current?.reset() // uncontrolled composer clears natively
     }
   }, [state])
 
@@ -118,7 +119,7 @@ export function CommentThread({
         <input type="hidden" name="entity" value={entity} />
         <input type="hidden" name="entityId" value={entityId} />
         <input type="hidden" name="path" value={path} />
-        <Textarea name="body" rows={3} required placeholder="اكتب تعليقًا…" aria-label="تعليق جديد" />
+        <MentionTextarea name="body" placeholder="اكتب تعليقًا… استخدم @ للإشارة إلى زميل" />
         {state.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}
         <div className="flex justify-end">
           <Button type="submit" loading={pending}>إرسال</Button>

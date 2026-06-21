@@ -43,7 +43,7 @@ export default async function DocumentActivityPage({ params }: { params: Promise
             path={`/documents/${docId}/activity`}
             activity={panel.activity}
             comments={panel.comments}
-            isAdmin={panel.isAdmin}
+            isAdmin={panel.isAdmin} isWatching={panel.isWatching}
           />
         </CardBody>
       </Card>

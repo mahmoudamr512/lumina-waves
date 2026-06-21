@@ -15,9 +15,13 @@ export async function postComment(_prev: CommentActionState, fd: FormData): Prom
   const entityId = String(fd.get('entityId') ?? '')
   const path = String(fd.get('path') ?? '')
   const body = String(fd.get('body') ?? '')
+  const mentionIds = String(fd.get('mentionIds') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
   if (!body.trim()) return { error: 'لا يمكن إرسال تعليق فارغ.' }
   try {
-    await addComment(entity, entityId, body)
+    await addComment(entity, entityId, body, mentionIds)
   } catch (e) {
     return { error: userErrorMessage(e) }
   }

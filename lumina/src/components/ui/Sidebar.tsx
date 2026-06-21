@@ -25,6 +25,8 @@ export interface SidebarProps {
   items: SidebarItem[]
   /** URL to the signed-in user's avatar, if any (else initials fallback). */
   avatarUrl?: string
+  /** Notification bell element (rendered server-side with the initial count). */
+  bell?: ReactNode
 }
 
 /**
@@ -34,7 +36,7 @@ export interface SidebarProps {
  * the top; the signed-in user, locale switcher, and sign-out are pinned to the
  * bottom.
  */
-export function Sidebar({ name, role, items, avatarUrl }: SidebarProps) {
+export function Sidebar({ name, role, items, avatarUrl, bell }: SidebarProps) {
   const pathname = usePathname()
   const t = useTranslations('nav')
   const tAuth = useTranslations('auth')
@@ -87,7 +89,10 @@ export function Sidebar({ name, role, items, avatarUrl }: SidebarProps) {
         </span>
       </Link>
       <div className="flex items-center justify-between gap-2">
-        <LocaleSwitcher />
+        <div className="flex items-center gap-1">
+          <LocaleSwitcher />
+          {bell}
+        </div>
         <form action={signOutAction}>
           <button
             type="submit"
@@ -133,6 +138,7 @@ export function Sidebar({ name, role, items, avatarUrl }: SidebarProps) {
           <IconMenu className="h-6 w-6" />
         </button>
         <LuminaLogo layout="horizontal" size={26} title="Lumina Waves" />
+        {bell && <div className="ms-auto">{bell}</div>}
       </div>
 
       {/* Mobile drawer */}

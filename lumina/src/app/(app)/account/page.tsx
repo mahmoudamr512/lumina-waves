@@ -8,6 +8,9 @@ import { Breadcrumb, Card, CardHeader, CardBody, Badge } from '@/components/ui'
 import { ProfileForm } from './_forms/ProfileForm'
 import { PasswordForm } from './_forms/PasswordForm'
 import { MySessionsPanel } from './_forms/MySessionsPanel'
+import { vapidPublicKey, listMyDevices } from '@/lib/push'
+import { PushToggle } from '@/components/notifications/PushToggle'
+import { PushDevices } from '@/components/notifications/PushDevices'
 
 export const metadata = { title: 'حسابي | Lumina Waves' }
 export const dynamic = 'force-dynamic'
@@ -19,6 +22,7 @@ export default async function AccountPage() {
   const profile = await getMyProfile()
   if (!profile) redirect('/login')
   const sessions = await listMySessions()
+  const devices = await listMyDevices()
 
   return (
     <section className="space-y-8">
@@ -57,6 +61,20 @@ export default async function AccountPage() {
           </CardBody>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader><h2 className="text-base font-semibold text-foreground">الإشعارات</h2></CardHeader>
+        <CardBody className="space-y-4">
+          <p className="text-sm text-muted">
+            فعّل إشعارات المتصفح لتصلك تنبيهات التعليقات والإشارات حتى عندما يكون التطبيق مغلقًا.
+          </p>
+          <PushToggle publicKey={vapidPublicKey()} />
+          <div className="border-t border-line pt-3">
+            <p className="mb-2 text-sm font-medium text-foreground">الأجهزة المفعّلة</p>
+            <PushDevices devices={devices} />
+          </div>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader><h2 className="text-base font-semibold text-foreground">جلساتي</h2></CardHeader>

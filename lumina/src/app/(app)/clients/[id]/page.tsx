@@ -222,7 +222,7 @@ export default async function ClientDetailPage({
             path={`/clients/${id}`}
             activity={panel.activity}
             comments={panel.comments}
-            isAdmin={panel.isAdmin}
+            isAdmin={panel.isAdmin} isWatching={panel.isWatching}
           />
         )}
       </ClientHub>
