@@ -25,6 +25,8 @@ import {
 import { TERRITORY_AR, CREDIT_ROLE_AR, WORK_STATUS_AR, DOC_STATUS_AR, termLabel, formatDateAr } from '@/lib/labels'
 import AddAnnexButton from '@/app/(app)/clients/[id]/AddAnnexButton'
 import AttachDocumentForm from '@/app/(app)/clients/[id]/AttachDocumentForm'
+import { ActivityPanel } from '@/components/activity/ActivityPanel'
+import { getEntityPanel } from '@/services/activity-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +57,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   const canAttach = can(role, 'create', 'Document')
   const canAddAnnex = can(role, 'create', 'Annex')
   const canAddWork = can(role, 'create', 'Work')
+  const panel = await getEntityPanel('MasterContract', id)
 
   return (
     <section className="space-y-8">
@@ -230,6 +233,20 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
           ))
         )}
       </div>
+
+      <Card>
+        <CardHeader><h2 className="text-base font-semibold text-foreground">النشاط</h2></CardHeader>
+        <CardBody>
+          <ActivityPanel
+            entity="MasterContract"
+            entityId={id}
+            path={`/contracts/${id}`}
+            activity={panel.activity}
+            comments={panel.comments}
+            isAdmin={panel.isAdmin}
+          />
+        </CardBody>
+      </Card>
     </section>
   )
 }

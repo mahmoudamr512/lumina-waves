@@ -12,6 +12,8 @@ import { ContractsTab } from './_tabs/ContractsTab'
 import { ReleasesTab } from './_tabs/ReleasesTab'
 import { FoldersTab } from './_tabs/FoldersTab'
 import { DocumentsTab } from './_tabs/DocumentsTab'
+import { ActivityPanel } from '@/components/activity/ActivityPanel'
+import { getEntityPanel } from '@/services/activity-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +33,7 @@ const TABS = [
   { key: 'releases', label: 'الإصدارات' },
   { key: 'folders', label: 'المجلدات' },
   { key: 'documents', label: 'المستندات' },
+  { key: 'activity', label: 'النشاط' },
 ]
 
 /**
@@ -157,6 +160,7 @@ export default async function ClientDetailPage({
   const title = tree.stageName ?? tree.legalName
   const active = TABS.some((t) => t.key === tab) ? tab! : 'contracts'
   const searchItems = buildSearchIndex(tree, id)
+  const panel = active === 'activity' ? await getEntityPanel('Client', id) : null
 
   return (
     <section className="space-y-8">
@@ -211,6 +215,16 @@ export default async function ClientDetailPage({
           <FoldersTab clientId={id} folders={tree.folders} canAttach={canAttach} />
         )}
         {active === 'documents' && <DocumentsTab contracts={tree.contracts} folders={tree.folders} />}
+        {active === 'activity' && panel && (
+          <ActivityPanel
+            entity="Client"
+            entityId={id}
+            path={`/clients/${id}`}
+            activity={panel.activity}
+            comments={panel.comments}
+            isAdmin={panel.isAdmin}
+          />
+        )}
       </ClientHub>
     </section>
   )

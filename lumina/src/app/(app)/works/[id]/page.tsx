@@ -7,6 +7,8 @@ import { GRANT_TYPES } from '@/lib/rights'
 import { FadeIn } from '@/components/motion'
 import { Breadcrumb, Card, CardBody, CardHeader, Badge, Table, THead, TBody, TR, TH, TD, EmptyState, statusVariant } from '@/components/ui'
 import { CREDIT_ROLE_AR, WORK_STATUS_AR } from '@/lib/labels'
+import { ActivityPanel } from '@/components/activity/ActivityPanel'
+import { getEntityPanel } from '@/services/activity-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +29,7 @@ export default async function WorkDetailPage({ params }: { params: Promise<{ id:
 
   const work = await getWork(id)
   if (!work) notFound()
+  const panel = await getEntityPanel('Work', id)
 
   const annex = work.annex
   const contract = annex?.contract
@@ -112,6 +115,20 @@ export default async function WorkDetailPage({ params }: { params: Promise<{ id:
           ) : (
             <EmptyState title="غير مرتبط بملحق" body="هذا العمل غير مرتبط بأي ملحق أو عقد بعد." />
           )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader><h2 className="text-base font-semibold text-foreground">النشاط</h2></CardHeader>
+        <CardBody>
+          <ActivityPanel
+            entity="Work"
+            entityId={id}
+            path={`/works/${id}`}
+            activity={panel.activity}
+            comments={panel.comments}
+            isAdmin={panel.isAdmin}
+          />
         </CardBody>
       </Card>
     </section>

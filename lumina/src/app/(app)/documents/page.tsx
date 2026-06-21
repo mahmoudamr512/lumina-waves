@@ -109,6 +109,7 @@ export default async function DocumentsPage() {
                 <TH>السياق</TH>
                 <TH>الحالة</TH>
                 <TH>التاريخ</TH>
+                <TH>النشاط</TH>
               </tr>
             </THead>
             <TBody>
@@ -127,6 +128,14 @@ export default async function DocumentsPage() {
                     <Badge variant={statusVariant(doc.status)}>{DOC_STATUS_AR[doc.status] ?? doc.status}</Badge>
                   </TD>
                   <TD className="text-muted">{formatDateAr(doc.createdAt)}</TD>
+                  <TD>
+                    <Link
+                      href={`/documents/${doc.id}/activity`}
+                      className="rounded text-sm text-gold-200 underline-offset-2 hover:underline focus-ring"
+                    >
+                      النشاط
+                    </Link>
+                  </TD>
                 </TR>
               ))}
             </TBody>
