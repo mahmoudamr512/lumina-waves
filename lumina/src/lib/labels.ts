@@ -54,3 +54,27 @@ export function formatDateAr(date: Date | string, withMonthLong = false): string
     day: 'numeric',
   })
 }
+
+const arNum = (n: number) => n.toLocaleString('ar-EG')
+
+/** Arabic count word: 1→singular, 2→dual, 3-10→"{n} {few}", else→"{n} {many}". */
+function arCount(n: number, singular: string, dual: string, few: string, many: string): string {
+  if (n === 1) return singular
+  if (n === 2) return dual
+  if (n <= 10) return `${arNum(n)} ${few}`
+  return `${arNum(n)} ${many}`
+}
+
+/** Relative Arabic time ("الآن" / "منذ ٥ دقائق" / "منذ ٣ ساعات" / "منذ يومين"), falling back to a date for old timestamps. */
+export function timeAgoAr(date: Date | string, now: Date = new Date()): string {
+  const then = new Date(date).getTime()
+  const sec = Math.floor((now.getTime() - then) / 1000)
+  if (sec < 60) return 'الآن'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `منذ ${arCount(min, 'دقيقة', 'دقيقتين', 'دقائق', 'دقيقة')}`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `منذ ${arCount(hr, 'ساعة', 'ساعتين', 'ساعات', 'ساعة')}`
+  const day = Math.floor(hr / 24)
+  if (day < 30) return `منذ ${arCount(day, 'يوم', 'يومين', 'أيام', 'يومًا')}`
+  return formatDateAr(new Date(date))
+}
