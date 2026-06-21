@@ -62,7 +62,9 @@ jobs:
       - uses: actions/checkout@v4
       # Validates the production deploy image (Dockerfile) builds cleanly:
       # npm ci → prisma generate (postinstall) → next build → Chromium for PDF.
-      - run: docker build -t lumina:ci ./lumina
+      # NOTE: the workflow's default working-directory is `lumina`, so the build
+      # context here is `.` (i.e. lumina/), not ./lumina.
+      - run: docker build -t lumina:ci .
 
   e2e:
     name: End-to-end (Playwright)
