@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { writeAudit } from '@/lib/audit'
 
 // Roles allowed to download sensitive contract PDFs (same as generation gate)
 const SENSITIVE_DOC_ROLES = ['ADMIN', 'LEGAL']
@@ -42,6 +43,18 @@ export async function GET(
     arrayBuf = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
   } catch {
     return new Response('تعذّر قراءة الملف.', { status: 500 })
+  }
+
+  try {
+    await writeAudit({
+      actorId: session.user.id,
+      action: 'DOWNLOAD',
+      entity: 'Document',
+      entityId: docId,
+      meta: { filename: doc.filename },
+    })
+  } catch (err) {
+    console.warn('[generate/download] audit failed (best-effort):', err)
   }
 
   return new Response(arrayBuf, {
