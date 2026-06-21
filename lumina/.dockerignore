@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.*
+.storage
+tests/e2e/.storage
+playwright-report
+test-results
+.playwright-mcp
+coverage
+*.log

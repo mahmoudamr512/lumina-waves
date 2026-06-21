@@ -1,0 +1,86 @@
+# Lumina Waves — single-box production stack for a Vultr (or any) VPS.
+# Web + worker + Postgres + Redis + Meilisearch + Caddy (auto-HTTPS), all on one
+# host. Files (PDFs/uploads/avatars) live on the `storage` volume and are shared
+# by web and worker. Configure secrets in `.env` (see .env.production.example).
+
+services:
+  web:
+    build:
+      context: ./lumina
+    restart: unless-stopped
+    env_file: .env
+    # Apply DB migrations on boot, then serve.
+    command: sh -c "npx prisma migrate deploy && npm run start"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+      meili: { condition: service_started }
+    volumes:
+      - storage:/app/.storage
+    expose:
+      - "3000"
+
+  worker:
+    build:
+      context: ./lumina
+    restart: unless-stopped
+    env_file: .env
+    command: npm run worker
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    volumes:
+      - storage:/app/.storage
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lumina
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: lumina
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumina"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  meili:
+    image: getmeili/meilisearch:v1.10
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_KEY}
+      MEILI_ENV: production
+    volumes:
+      - meilidata:/meili_data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+volumes:
+  storage:
+  pgdata:
+  redisdata:
+  meilidata:
+  caddydata:
+  caddyconfig:
