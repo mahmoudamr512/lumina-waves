@@ -45,3 +45,40 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(caches.match(req).then((r) => r || fetch(req)))
   }
 })
+
+// ── Web push ────────────────────────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = {}
+  }
+  const title = data.title || 'لومينا ويفز'
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      dir: 'rtl',
+      lang: 'ar',
+      data: { url: data.url || '/' },
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || '/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+      for (const c of cs) {
+        if ('focus' in c) {
+          if ('navigate' in c) c.navigate(url)
+          return c.focus()
+        }
+      }
+      return self.clients.openWindow(url)
+    }),
+  )
+})
