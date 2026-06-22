@@ -47,7 +47,13 @@ Fill in: `DOMAIN`, `POSTGRES_PASSWORD` (and the matching `DATABASE_URL`),
 `AUTH_SECRET`, `SEED_ADMIN_*`, `MEILI_KEY`, and the **real** VAPID keys
 (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
 `VAPID_SUBJECT` — generate with `npx web-push generate-vapid-keys`). Optional:
-SMTP and Google Drive backup.
+SMTP (transactional email) and Google Drive backup.
+
+**Email note:** Zoho Mail (free) gives you a human inbox (`ops@luminawaves.com`)
+but **no external SMTP** on the free tier. For the app's transactional email set
+`SMTP_URL` to a sending service — **Resend** (`smtps://resend:<API_KEY>@smtp.resend.com:465`)
+or **ZeptoMail** (`smtps://emailapikey:<SEND_TOKEN>@smtp.zeptomail.com:465`). App
+email is optional; the app runs fine with `SMTP_URL` blank. See `.env.production.example`.
 
 ## 7. Launch
 ```bash
