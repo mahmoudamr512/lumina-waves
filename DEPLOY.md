@@ -44,10 +44,16 @@ openssl rand -base64 32          # use for AUTH_SECRET
 nano .env
 ```
 Fill in: `DOMAIN`, `POSTGRES_PASSWORD` (and the matching `DATABASE_URL`),
-`AUTH_SECRET`, `SEED_ADMIN_*`, `MEILI_KEY`, and the **real** VAPID keys
-(`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
-`VAPID_SUBJECT` — generate with `npx web-push generate-vapid-keys`). Optional:
-SMTP (transactional email) and Google Drive backup.
+`AUTH_SECRET`, **`AUTH_TRUST_HOST=true`** (required behind the Caddy proxy —
+Auth.js rejects the host otherwise), `SEED_ADMIN_*`, `MEILI_KEY`, and the
+**real** VAPID keys (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` — generate with
+`npx web-push generate-vapid-keys`). Optional: SMTP (transactional email) and
+Google Drive backup.
+
+**`www` subdomain:** the Caddyfile redirects `www.<domain>` → apex. For it to get
+a cert, add an `A` record for `www` → the server IP (same as the apex), then
+`docker compose restart caddy`.
 
 **Email note:** Zoho Mail (free) gives you a human inbox (`ops@luminawaves.com`)
 but **no external SMTP** on the free tier. For the app's transactional email set
