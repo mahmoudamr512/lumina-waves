@@ -29,7 +29,10 @@ export function Tabs({
   }
 
   return (
-    <div role="tablist" className="mb-6 flex gap-1 border-b border-line">
+    <div
+      role="tablist"
+      className="mb-6 flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
       {tabs.map((tab) => {
         const selected = tab.key === active
         return (
@@ -39,7 +42,7 @@ export function Tabs({
             role="tab"
             aria-selected={selected}
             className={cn(
-              '-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition focus-ring',
+              '-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition focus-ring',
               selected
                 ? 'border-gold-400 text-gold-200'
                 : 'border-transparent text-muted hover:text-foreground',
