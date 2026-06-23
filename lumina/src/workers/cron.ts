@@ -9,9 +9,15 @@
 //     This keeps imports in tests free of Redis side-effects.
 
 import { purgeExpired } from '@/services/trash'
+import { sendContractExpiryReminders } from '@/services/contract-expiry'
 
 export async function runDailyMaintenance(): Promise<void> {
   await purgeExpired()
+  try {
+    await sendContractExpiryReminders()
+  } catch (err) {
+    console.warn('[cron] contract expiry reminders failed (best-effort):', err)
+  }
 }
 
 export async function registerCron(): Promise<void> {

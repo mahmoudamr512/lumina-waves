@@ -4,6 +4,7 @@ import { writeAudit } from '@/lib/audit'
 import { redactSensitive } from '@/lib/authz'
 import { validateGrant } from '@/lib/rights'
 import { queues } from '@/lib/queue'
+import { notifyRecordActivity } from '@/services/notifications'
 
 export async function createContract(input: {
   clientId: string
@@ -20,11 +21,28 @@ export async function createContract(input: {
 }) {
   const u = await requireUser('create', 'MasterContract')
   validateGrant({ grantType: input.grantType, territory: input.territory, coverage: input.coverage })
-  const row = await db.masterContract.create({ data: { ...input, coverage: input.coverage } })
+  // Auto-derive the expiry date from the signed date + term (editable later).
+  const expiresAt = input.signedDate
+    ? new Date(new Date(input.signedDate).setMonth(new Date(input.signedDate).getMonth() + input.termMonths))
+    : null
+  const row = await db.masterContract.create({ data: { ...input, coverage: input.coverage, expiresAt } })
   await writeAudit({ actorId: u.id, action: 'CREATE', entity: 'MasterContract', entityId: row.id, after: row })
   // Best-effort Drive backup — outage must NOT fail the mutation
   try { await queues.drive.add('backup', { clientId: row.clientId }) } catch (err) {
     console.warn('[createContract] Drive enqueue failed (best-effort):', err)
+  }
+  // Best-effort: notify watchers of the client about the new contract.
+  try {
+    await notifyRecordActivity({
+      entity: 'MasterContract',
+      entityId: row.id,
+      clientId: row.clientId,
+      actorId: u.id,
+      title: 'تمت إضافة عقد جديد',
+      href: `/contracts/${row.id}`,
+    })
+  } catch (err) {
+    console.warn('[createContract] notify failed (best-effort):', err)
   }
   return redactSensitive(u.role, 'MasterContract', row)
 }
