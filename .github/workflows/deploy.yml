@@ -38,4 +38,4 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           ssh -i ~/.ssh/id_deploy -p "${PORT}" "${SSH_USER}@${SSH_HOST}" \
-            'cd /opt/lumina && git pull --ff-only && docker compose up -d --build && docker image prune -f'
+            'cd /opt/lumina && git pull --ff-only && docker compose pull && docker compose up -d && docker image prune -f'

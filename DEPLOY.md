@@ -56,13 +56,16 @@ or **ZeptoMail** (`smtps://emailapikey:<SEND_TOKEN>@smtp.zeptomail.com:465`). Ap
 email is optional; the app runs fine with `SMTP_URL` blank. See `.env.production.example`.
 
 ## 7. Launch
+The image is **built in CI and published to GHCR**, so the server just pulls it
+(no building on the VPS):
 ```bash
-docker compose up -d --build
+docker compose pull        # pull the prebuilt ghcr.io/mahmoudamr512/lumina-waves image
+docker compose up -d
 ```
 The **web** service runs `prisma migrate deploy` automatically on boot.
 
-> Low-RAM note: if the image build is killed on a 2 GB box, ensure swap (step 4)
-> is on, or build on a temporarily resized instance, then resize back.
+> The GHCR image is public (the repo is public), so no registry login is needed.
+> If you make the image private later, run `docker login ghcr.io` on the box first.
 
 ## 8. Create the first admin
 ```bash
@@ -92,9 +95,10 @@ automatic snapshots are a good whole-server safety net too.
 
 ## Updating
 ```bash
-cd /opt/lumina && git pull && docker compose up -d --build
+cd /opt/lumina && git pull --ff-only && docker compose pull && docker compose up -d
 ```
-Migrations apply automatically on the web container's next boot.
+Migrations apply automatically on the web container's next boot. (CI rebuilds and
+publishes the GHCR image on every green `main`; the server only pulls it.)
 
 ## Architecture notes
 - **Web** (`next start`) and **worker** (`npm run worker` — OCR, Drive backup,
@@ -113,9 +117,10 @@ Migrations apply automatically on the web container's next boot.
 ## Continuous deploy (optional, one-push releases)
 
 `.github/workflows/deploy.yml` SSHes into the VPS and runs
-`git pull && docker compose up -d --build` — but **only after CI passes on
-`main`** (or when triggered manually from the Actions tab). It safely **no-ops**
-until you set the secrets below, so it won't fail before the server exists.
+`git pull && docker compose pull && docker compose up -d` — but **only after CI
+passes on `main`** (which is also where the image is published to GHCR), or when
+triggered manually from the Actions tab. It safely **no-ops** until you set the
+secrets below, so it won't fail before the server exists.
 
 **One-time setup:**
 

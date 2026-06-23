@@ -5,6 +5,9 @@
 
 services:
   web:
+    # Prebuilt in CI and pulled on the server (`docker compose pull`); `build` is
+    # kept for local use (`docker compose up --build`).
+    image: ghcr.io/mahmoudamr512/lumina-waves:latest
     build:
       context: ./lumina
     restart: unless-stopped
@@ -21,6 +24,7 @@ services:
       - "3000"
 
   worker:
+    image: ghcr.io/mahmoudamr512/lumina-waves:latest
     build:
       context: ./lumina
     restart: unless-stopped

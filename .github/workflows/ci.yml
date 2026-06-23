@@ -58,13 +58,30 @@ jobs:
   docker:
     name: Docker image build (deploy)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
-      # Validates the production deploy image (Dockerfile) builds cleanly:
-      # npm ci → prisma generate (postinstall) → next build → Chromium for PDF.
-      # NOTE: the workflow's default working-directory is `lumina`, so the build
-      # context here is `.` (i.e. lumina/), not ./lumina.
-      - run: docker build -t lumina:ci .
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Builds the production image (validates Dockerfile on PRs) and pushes it to
+      # GHCR on main so the server can `docker compose pull` instead of building
+      # on the (small) VPS. Context is ./lumina (the action ignores the run-step
+      # default working-directory).
+      - name: Build (and push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./lumina
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ghcr.io/mahmoudamr512/lumina-waves:latest
+            ghcr.io/mahmoudamr512/lumina-waves:${{ github.sha }}
 
   e2e:
     name: End-to-end (Playwright)
