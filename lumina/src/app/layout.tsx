@@ -28,6 +28,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Mobile-first: ensure phones use the device width (not a zoomed-out desktop
+  // layout). `maximumScale` is left default so users can still pinch-zoom (a11y).
+  width: "device-width",
+  initialScale: 1,
   themeColor: "#0A0A0D",
 };
 
