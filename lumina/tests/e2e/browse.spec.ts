@@ -36,7 +36,7 @@ test('within-client search filters across the client and shows no-results', asyn
   await createClient(page)
   const clientUrl = page.url()
 
-  // Add a contract (default grant type is an exclusive licence → "ترخيص حصري").
+  // Add a contract (default grant type is distribution → "توزيع").
   await page.getByRole('link', { name: 'إضافة عقد' }).first().click()
   await page.getByText('التوزيع الرقمي والبث التدفقي').click()
   await page.getByRole('button', { name: 'حفظ العقد' }).click()
@@ -44,8 +44,8 @@ test('within-client search filters across the client and shows no-results', asyn
 
   // Back on the client hub, the within-client search finds the contract.
   await page.goto(clientUrl)
-  await page.getByLabel('بحث داخل ملف العميل').fill('ترخيص')
-  await expect(page.getByText('ترخيص حصري')).toBeVisible()
+  await page.getByLabel('بحث داخل ملف العميل').fill('توزيع')
+  await expect(page.getByText('توزيع', { exact: true }).first()).toBeVisible()
 
   // A non-matching query shows the no-results state.
   await page.getByLabel('بحث داخل ملف العميل').fill('xyz-لا-شيء')
