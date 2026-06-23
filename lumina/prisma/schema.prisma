@@ -21,10 +21,8 @@ enum Role {
 }
 
 enum GrantType {
-  FULL_ASSIGNMENT
-  EXCLUSIVE_LICENSE
-  NON_EXCLUSIVE_LICENSE
-  MANAGEMENT
+  SALE // بيع، استغلال — one-time buyout/assignment (perpetual; expiry optional)
+  DISTRIBUTION // توزيع — exploitation/distribution license (revenue share; term-based expiry)
 }
 
 enum WorkStatus {

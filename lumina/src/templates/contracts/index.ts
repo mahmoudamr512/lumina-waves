@@ -29,7 +29,7 @@ export type ContractData = {
   contractDateAr?: string
   /** Registration/authentication number printed on the seal. */
   regNo?: string
-  /** Lump-sum buyout amount in EGP, for a sale & assignment (FULL_ASSIGNMENT). */
+  /** Lump-sum buyout amount in EGP, for a sale & assignment (SALE). */
   buyoutAmountEgp?: number
   /** Optional Arabic words form of the buyout amount (e.g. "عشرة آلاف جنيه"). */
   buyoutAmountWords?: string
@@ -77,10 +77,8 @@ function fixParens(html: string): string {
 
 // Grant nature phrasing used in the granting clause, per grant type.
 const GRANT_NATURE_AR: Record<keyof typeof GRANT_TYPES, string> = {
-  FULL_ASSIGNMENT: 'التنازل الكامل والنهائي عن كافة الحقوق المالية',
-  EXCLUSIVE_LICENSE: 'الحق الحصري',
-  NON_EXCLUSIVE_LICENSE: 'الحق غير الحصري',
-  MANAGEMENT: 'حق الإدارة والاستغلال',
+  SALE: 'التنازل الكامل والنهائي عن كافة الحقوق المالية',
+  DISTRIBUTION: 'الحق الحصري في الاستغلال والتوزيع',
 }
 
 const YEAR_WORDS: Record<number, string> = {
@@ -152,10 +150,10 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
     <p><strong>أولًا:</strong> السيد/ ${name}${stage}، ويحمل بطاقة رقم قومي ${nid}، المقيم بالعنوان: ${addr}، بصفته مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية. <strong>(ويشار إليه بالطرف الأول)</strong></p>
     <p><strong>ثانيًا:</strong> السادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)}، ومقرها ${escapeHtml(COMPANY.addressAr)}. <strong>(ويشار إليها بالطرف الثاني)</strong></p>`
 
-  // ── Sale & assignment (عقد بيع وتنازل) — FULL_ASSIGNMENT: a one-time lump-sum
+  // ── Sale & assignment (عقد بيع وتنازل) — SALE: a one-time lump-sum
   // buyout of full economic rights, no term, no revenue share. Inherits the
   // letterhead, seal, footer and parenthesis fix like every contract.
-  if (grantType === 'FULL_ASSIGNMENT') {
+  if (grantType === 'SALE') {
     const amount = d.buyoutAmountEgp != null ? d.buyoutAmountEgp.toLocaleString('en-US') : '____'
     // Auto-generate the amount-in-words (تفقيط) from the figure when not supplied.
     const wordsText = d.buyoutAmountWords ?? (d.buyoutAmountEgp != null ? egpInWords(d.buyoutAmountEgp) : '')

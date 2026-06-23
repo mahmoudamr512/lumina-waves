@@ -1,15 +1,15 @@
 import { renderContract, renderAnnex } from '@/templates/contracts'
 import { escapeHtml } from '@/templates/contracts/_layout'
 
-test('exclusive license contract includes correct Arabic grant + moral-rights note', () => {
-  const html = renderContract('EXCLUSIVE_LICENSE', {
+test('distribution contract includes correct Arabic grant + moral-rights note', () => {
+  const html = renderContract('DISTRIBUTION', {
     party1Name: 'أحمد علاء',
     party1NationalId: '28902102104713',
     territory: 'WORLDWIDE',
     termMonths: 36,
     coverage: ['DIGITAL', 'SYNC'],
   })
-  expect(html).toContain('ترخيص حصري')
+  expect(html).toContain('توزيع')
   expect(html).toContain('الحقوق الأدبية') // moral-rights note always present
   expect(html).toContain('المزامنة') // coverage rendered in Arabic
 })
@@ -57,7 +57,7 @@ test('escapeHtml escapes all five special characters', () => {
 })
 
 test('renderContract escapes malicious party1Name — raw tags must not appear', () => {
-  const html = renderContract('EXCLUSIVE_LICENSE', {
+  const html = renderContract('DISTRIBUTION', {
     party1Name: '<script>alert(1)</script>',
     party1NationalId: '12345678901234',
     territory: 'EGYPT',
@@ -71,7 +71,7 @@ test('renderContract escapes malicious party1Name — raw tags must not appear',
 })
 
 test('renderContract escapes malicious party1NationalId', () => {
-  const html = renderContract('FULL_ASSIGNMENT', {
+  const html = renderContract('SALE', {
     party1Name: 'سالم محمد',
     party1NationalId: '"><img src=x onerror=alert(1)>',
     territory: 'MENA',
@@ -83,7 +83,7 @@ test('renderContract escapes malicious party1NationalId', () => {
 })
 
 test('renderContract escapes an unknown territory fallback value', () => {
-  const html = renderContract('MANAGEMENT', {
+  const html = renderContract('DISTRIBUTION', {
     party1Name: 'فاطمة علي',
     party1NationalId: '29901010100001',
     territory: '<UNKNOWN>',

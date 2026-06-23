@@ -8,7 +8,7 @@ import { notifyRecordActivity } from '@/services/notifications'
 
 export async function createContract(input: {
   clientId: string
-  grantType: 'FULL_ASSIGNMENT' | 'EXCLUSIVE_LICENSE' | 'NON_EXCLUSIVE_LICENSE' | 'MANAGEMENT'
+  grantType: 'SALE' | 'DISTRIBUTION'
   territory: string
   termMonths: number
   coverage: string[]
@@ -21,10 +21,12 @@ export async function createContract(input: {
 }) {
   const u = await requireUser('create', 'MasterContract')
   validateGrant({ grantType: input.grantType, territory: input.territory, coverage: input.coverage })
-  // Auto-derive the expiry date from the signed date + term (editable later).
-  const expiresAt = input.signedDate
-    ? new Date(new Date(input.signedDate).setMonth(new Date(input.signedDate).getMonth() + input.termMonths))
-    : null
+  // A SALE (بيع، استغلال) is a perpetual buyout → no expiry. A DISTRIBUTION
+  // (توزيع) is term-based → auto-derive expiry from the signed date + term.
+  const expiresAt =
+    input.grantType === 'DISTRIBUTION' && input.signedDate
+      ? new Date(new Date(input.signedDate).setMonth(new Date(input.signedDate).getMonth() + input.termMonths))
+      : null
   const row = await db.masterContract.create({ data: { ...input, coverage: input.coverage, expiresAt } })
   await writeAudit({ actorId: u.id, action: 'CREATE', entity: 'MasterContract', entityId: row.id, after: row })
   // Best-effort Drive backup — outage must NOT fail the mutation

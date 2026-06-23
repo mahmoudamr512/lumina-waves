@@ -35,8 +35,8 @@ export default function NewContractForm({ clientId, grantTypes, coverage }: Prop
 
   // A sale & assignment (تنازل كامل) is a one-time buyout: show the amount field
   // and hide the licensing/management fields (term, %, settlement, notice).
-  const [grantType, setGrantType] = useState('EXCLUSIVE_LICENSE')
-  const isSale = grantType === 'FULL_ASSIGNMENT'
+  const [grantType, setGrantType] = useState('DISTRIBUTION')
+  const isSale = grantType === 'SALE'
 
   useEffect(() => {
     if (state.ok && handled.current !== state) {

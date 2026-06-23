@@ -1,9 +1,7 @@
 // src/lib/rights.ts
 export const GRANT_TYPES = {
-  FULL_ASSIGNMENT:       { ar: 'تنازل كامل عن الحقوق المالية', en: 'Full economic-rights buyout' },
-  EXCLUSIVE_LICENSE:     { ar: 'ترخيص حصري',                   en: 'Exclusive license' },
-  NON_EXCLUSIVE_LICENSE: { ar: 'ترخيص غير حصري',               en: 'Non-exclusive license' },
-  MANAGEMENT:            { ar: 'عقد إدارة',                     en: 'Management only' },
+  SALE:         { ar: 'بيع، استغلال', en: 'Sale & exploitation' },
+  DISTRIBUTION: { ar: 'توزيع',        en: 'Distribution' },
 } as const
 
 export const COVERAGE = {

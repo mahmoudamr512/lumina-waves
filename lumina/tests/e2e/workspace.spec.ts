@@ -27,7 +27,7 @@ test('contract: create licence contract → contract detail → generate PDF', a
   await expect(page.getByRole('link', { name: /تحميل مسودة PDF/ })).toBeVisible({ timeout: 40_000 })
 })
 
-test('sale contract: choose تنازل كامل → buyout amount field appears → save', async ({ page }) => {
+test('sale contract: choose بيع، استغلال → buyout amount field appears → save', async ({ page }) => {
   test.slow()
   await login(page)
   await createClient(page)
@@ -35,7 +35,7 @@ test('sale contract: choose تنازل كامل → buyout amount field appears 
   await expect(page).toHaveURL(/\/contracts\/new$/, { timeout: 20_000 })
 
   // Switching to sale & assignment reveals the buyout field and hides % / term.
-  await page.selectOption('select[name=grantType]', 'FULL_ASSIGNMENT')
+  await page.selectOption('select[name=grantType]', 'SALE')
   await expect(page.getByLabel('مبلغ البيع/التنازل', { exact: false })).toBeVisible()
   await expect(page.locator('input[name=revenueSharePct]')).toHaveCount(0)
   await page.getByLabel('مبلغ البيع/التنازل', { exact: false }).fill('10000')
@@ -44,7 +44,7 @@ test('sale contract: choose تنازل كامل → buyout amount field appears 
 
   // Lands on the contract detail page; its header shows the grant label.
   await expect(page).toHaveURL(/\/contracts\/[a-z0-9]+$/i, { timeout: 20_000 })
-  await expect(page.getByRole('heading', { name: 'تنازل كامل عن الحقوق المالية' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'بيع، استغلال' })).toBeVisible()
 })
 
 test('folder: create folder (modal) → attach file (modal) → download link appears', async ({ page }) => {

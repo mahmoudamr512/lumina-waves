@@ -23,7 +23,7 @@ test('createContract derives expiresAt from signedDate + termMonths', async () =
   const c = await createClient({ legalName: 'Exp', nationalId: `30000777${RUN}` })
   const k = await createContract({
     clientId: c.id,
-    grantType: 'EXCLUSIVE_LICENSE',
+    grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
     coverage: ['DIGITAL'],
@@ -37,7 +37,7 @@ test('annexes auto-number per contract', async () => {
   const c = await createClient({ legalName: 'C', nationalId: `30000001${RUN}` })
   const k = await createContract({
     clientId: c.id,
-    grantType: 'EXCLUSIVE_LICENSE',
+    grantType: 'DISTRIBUTION',
     territory: 'WORLDWIDE',
     termMonths: 36,
     coverage: ['DIGITAL'],
@@ -53,7 +53,7 @@ test('contract with empty coverage rejected', async () => {
   await expect(
     createContract({
       clientId: c.id,
-      grantType: 'EXCLUSIVE_LICENSE',
+      grantType: 'DISTRIBUTION',
       territory: 'EGYPT',
       termMonths: 12,
       coverage: [],
@@ -66,7 +66,7 @@ test('listContracts returns contracts with client info', async () => {
   const c = await createClient({ legalName: 'ListContracts Test', nationalId: `40000001${RUN4}` })
   await createContract({
     clientId: c.id,
-    grantType: 'MANAGEMENT',
+    grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
     coverage: ['DIGITAL'],

@@ -58,7 +58,7 @@ test('generateContractPdf creates a DRAFT document', async () => {
   const c = await createClient({ legalName: 'Gen Test', nationalId: uid() })
   const k = await createContract({
     clientId: c.id,
-    grantType: 'EXCLUSIVE_LICENSE',
+    grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
     coverage: ['DIGITAL'],
@@ -75,7 +75,7 @@ test('generateContractPdf writes an audit row', async () => {
   const c = await createClient({ legalName: 'Audit Test', nationalId: uid() })
   const k = await createContract({
     clientId: c.id,
-    grantType: 'FULL_ASSIGNMENT',
+    grantType: 'SALE',
     territory: 'MENA',
     termMonths: 24,
     coverage: ['DIGITAL', 'BROADCAST'],
@@ -94,7 +94,7 @@ test('markExecuted flips document status to EXECUTED', async () => {
   const c = await createClient({ legalName: 'Execute Test', nationalId: uid() })
   const k = await createContract({
     clientId: c.id,
-    grantType: 'MANAGEMENT',
+    grantType: 'DISTRIBUTION',
     territory: 'WORLDWIDE',
     termMonths: 6,
     coverage: ['NAME_IMAGE'],
@@ -113,7 +113,7 @@ test('markExecuted writes an audit row', async () => {
   const c = await createClient({ legalName: 'Execute Audit', nationalId: uid() })
   const k = await createContract({
     clientId: c.id,
-    grantType: 'NON_EXCLUSIVE_LICENSE',
+    grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
     coverage: ['SYNC'],
@@ -133,7 +133,7 @@ test('generateContractPdf excludes soft-deleted annexes/works from the rendered 
   const c = await createClient({ legalName: 'SoftDelete PDF', nationalId: uid() })
   const k = await createContract({
     clientId: c.id,
-    grantType: 'FULL_ASSIGNMENT',
+    grantType: 'SALE',
     territory: 'EGYPT',
     termMonths: 12,
     coverage: ['DIGITAL'],
@@ -166,7 +166,7 @@ test('generateContractPdf rejects OPERATIONS role (not in sensitive allowlist)',
   mockRequireUser.mockResolvedValueOnce({ id: 'admin', role: 'ADMIN' }) // createClient above used the prior mock
   const k = await createContract({
     clientId: c.id,
-    grantType: 'EXCLUSIVE_LICENSE',
+    grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
     coverage: ['DIGITAL'],

@@ -80,7 +80,7 @@ export async function generateContractPdf(contractId: string) {
     noticeDays: k.noticeDays,
     contractDateAr: dateAr,
     regNo: `${k.id.slice(-5).toUpperCase()} / ${(k.signedDate ?? k.createdAt).getFullYear()}`,
-    // Sale & assignment (FULL_ASSIGNMENT): lump-sum buyout (reusing minPayoutCents
+    // Sale & assignment (SALE): lump-sum buyout (reusing minPayoutCents
     // as the EGP buyout amount) + the list of works being sold.
     buyoutAmountEgp: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
     works: saleWorks.length ? saleWorks : undefined,

@@ -16,11 +16,7 @@ export async function addContract(
   formData: FormData,
 ): Promise<AddContractState> {
   const clientId = String(formData.get('clientId') ?? '').trim()
-  const grantType = String(formData.get('grantType') ?? '').trim() as
-    | 'FULL_ASSIGNMENT'
-    | 'EXCLUSIVE_LICENSE'
-    | 'NON_EXCLUSIVE_LICENSE'
-    | 'MANAGEMENT'
+  const grantType = String(formData.get('grantType') ?? '').trim() as 'SALE' | 'DISTRIBUTION'
   const territory = String(formData.get('territory') ?? '').trim()
   const termMonths = parseInt(String(formData.get('termMonths') ?? '36'), 10)
   const revenueSharePct = parseFloat(String(formData.get('revenueSharePct') ?? '70'))
