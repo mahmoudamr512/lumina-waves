@@ -22,7 +22,7 @@ import {
   statusVariant,
   IconPlus,
 } from '@/components/ui'
-import { TERRITORY_AR, CREDIT_ROLE_AR, WORK_STATUS_AR, DOC_STATUS_AR, termLabel, formatDateAr } from '@/lib/labels'
+import { TERRITORY_AR, CREDIT_ROLE_AR, WORK_STATUS_AR, DOC_STATUS_AR, termLabel, formatDateAr, daysFromNow } from '@/lib/labels'
 import AddAnnexButton from '@/app/(app)/clients/[id]/AddAnnexButton'
 import AttachDocumentForm from '@/app/(app)/clients/[id]/AttachDocumentForm'
 import { ActivityPanel } from '@/components/activity/ActivityPanel'
@@ -58,6 +58,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   const canAddAnnex = can(role, 'create', 'Annex')
   const canAddWork = can(role, 'create', 'Work')
   const panel = await getEntityPanel('MasterContract', id)
+  const expiryDays = contract.expiresAt != null ? daysFromNow(contract.expiresAt as Date) : null
 
   return (
     <section className="space-y-8">
@@ -87,6 +88,18 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                 <dt className="text-muted">المدة:</dt>
                 <dd className="text-foreground">{termLabel(contract.termMonths as number)}</dd>
               </div>
+              {contract.expiresAt != null && (
+                <div className="flex gap-1.5">
+                  <dt className="text-muted">تاريخ الانتهاء:</dt>
+                  <dd className="text-foreground" data-testid="contract-expiry">
+                    {formatDateAr(contract.expiresAt as Date)}
+                    {expiryDays != null && expiryDays <= 0 && <span className="text-rose-400"> (منتهٍ)</span>}
+                    {expiryDays != null && expiryDays > 0 && expiryDays <= 90 && (
+                      <span className="text-amber-400"> (خلال {expiryDays} يومًا)</span>
+                    )}
+                  </dd>
+                </div>
+              )}
               {contract.revenueShareBps != null && (
                 <div className="flex gap-1.5">
                   <dt className="text-muted">الحصة:</dt>

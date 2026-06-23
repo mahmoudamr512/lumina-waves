@@ -176,12 +176,22 @@ model MasterContract {
   minPayoutCents  Int? // sensitive
   settlementFreq  String? // e.g. "SEMIANNUAL"
   signedDate      DateTime?
+  expiresAt       DateTime? // contract end date (auto = signedDate + termMonths, editable)
   annexes         Annex[]
   documents       Document[]
   createdAt       DateTime   @default(now())
   deletedAt       DateTime?
   purgeAfter      DateTime?
   purgedAt        DateTime?
+}
+
+model ContractExpiryReminder {
+  id         String   @id @default(cuid())
+  contractId String
+  milestone  Int // days-before bucket: 90 | 30 | 7 | 0
+  sentAt     DateTime @default(now())
+
+  @@unique([contractId, milestone])
 }
 
 model Annex {

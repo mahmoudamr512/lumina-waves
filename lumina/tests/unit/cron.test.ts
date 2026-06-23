@@ -7,6 +7,10 @@ vi.mock('@/services/trash', () => ({
   purgeExpired: vi.fn(async () => undefined),
 }))
 
+vi.mock('@/services/contract-expiry', () => ({
+  sendContractExpiryReminders: vi.fn(async () => 0),
+}))
+
 // Mock bullmq so no Worker / Queue is instantiated when registerCron is called
 vi.mock('bullmq', () => ({
   Queue: vi.fn().mockImplementation(() => ({

@@ -14,9 +14,24 @@ vi.mock('@/lib/queue', () => ({
 import { createContract, listContracts } from '@/services/contracts'
 import { createAnnex } from '@/services/annexes'
 import { createClient } from '@/services/clients'
+import { db } from '@/lib/db'
 
 // Use a unique suffix per test run to avoid @unique nationalId collisions on re-runs
 const RUN = Date.now().toString().slice(-6)
+
+test('createContract derives expiresAt from signedDate + termMonths', async () => {
+  const c = await createClient({ legalName: 'Exp', nationalId: `30000777${RUN}` })
+  const k = await createContract({
+    clientId: c.id,
+    grantType: 'EXCLUSIVE_LICENSE',
+    territory: 'EGYPT',
+    termMonths: 12,
+    coverage: ['DIGITAL'],
+    signedDate: new Date('2026-01-15T00:00:00Z'),
+  })
+  const row = await db.masterContract.findUnique({ where: { id: k.id }, select: { expiresAt: true } })
+  expect(row?.expiresAt?.toISOString().slice(0, 10)).toBe('2027-01-15')
+})
 
 test('annexes auto-number per contract', async () => {
   const c = await createClient({ legalName: 'C', nationalId: `30000001${RUN}` })

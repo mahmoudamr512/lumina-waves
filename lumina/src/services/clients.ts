@@ -4,6 +4,7 @@ import { writeAudit } from '@/lib/audit'
 import { redactSensitive } from '@/lib/authz'
 import { queues } from '@/lib/queue'
 import { escapeHtml } from '@/templates/contracts/_layout'
+import { notifyCreatorOnDelete } from '@/services/notifications'
 
 export async function createClient(input: {
   legalName: string
@@ -144,5 +145,11 @@ export async function softDeleteClient(id: string) {
     }
   } catch (err) {
     console.warn('[softDeleteClient] Mail enqueue failed (best-effort):', err)
+  }
+  // Best-effort: notify the client's original creator that it was moved to trash.
+  try {
+    await notifyCreatorOnDelete('Client', id, u.id, before?.stageName ?? before?.legalName ?? 'عميل')
+  } catch (err) {
+    console.warn('[softDeleteClient] creator notify failed (best-effort):', err)
   }
 }

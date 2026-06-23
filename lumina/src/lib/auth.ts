@@ -42,6 +42,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           } catch (err) {
             console.warn('[auth] login-failed audit failed (best-effort):', err)
           }
+          // Best-effort admin alert on a failed-login spike (>=5 fails / 10 min for
+          // this email), throttled to one alert per email per window. Dynamic import
+          // avoids a static auth <-> notifications import cycle.
+          try {
+            const SPIKE_WINDOW_MS = 10 * 60 * 1000
+            const since = new Date(Date.now() - SPIKE_WINDOW_MS)
+            const fails = await db.auditLog.count({
+              where: { action: 'LOGIN_FAILED', createdAt: { gte: since }, meta: { path: ['email'], equals: email } },
+            })
+            if (fails >= 5) {
+              const already = await db.notification.findFirst({
+                where: { type: 'ADMIN', entity: 'Security', entityId: email, createdAt: { gte: since } },
+              })
+              if (!already) {
+                const { listAdminIds, notify } = await import('@/services/notifications')
+                await notify({
+                  recipientIds: await listAdminIds(),
+                  type: 'ADMIN',
+                  entity: 'Security',
+                  entityId: email,
+                  title: `محاولات دخول فاشلة متكررة (${fails}) للحساب ${email}`,
+                  href: '/activity',
+                })
+              }
+            }
+          } catch (err) {
+            console.warn('[auth] login-spike alert failed (best-effort):', err)
+          }
           return null
         }
         const sid = await createSessionRecord(user.id, ip, userAgent)

@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { writeAudit } from '@/lib/audit'
 import { redactSensitive } from '@/lib/authz'
+import { notifyRecordActivity } from '@/services/notifications'
 
 type CreditInput = { role: 'AUTHOR' | 'COMPOSER' | 'ARRANGER' | 'PERFORMER' | 'PRODUCER'; name: string }
 
@@ -23,6 +24,27 @@ export async function createWork(input: {
     include: { credits: true },
   })
   await writeAudit({ actorId: u.id, action: 'CREATE', entity: 'Work', entityId: row.id, after: row })
+  // Best-effort: notify watchers of the owning contract + client about the new work.
+  if (input.annexId) {
+    try {
+      const annex = await db.annex.findUnique({
+        where: { id: input.annexId },
+        include: { contract: { select: { id: true, clientId: true } } },
+      })
+      if (annex?.contract) {
+        await notifyRecordActivity({
+          entity: 'MasterContract',
+          entityId: annex.contract.id,
+          clientId: annex.contract.clientId,
+          actorId: u.id,
+          title: `تمت إضافة عمل جديد: ${input.title}`,
+          href: `/contracts/${annex.contract.id}`,
+        })
+      }
+    } catch (err) {
+      console.warn('[createWork] notify failed (best-effort):', err)
+    }
+  }
   return row
 }
 

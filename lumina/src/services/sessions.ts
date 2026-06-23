@@ -3,6 +3,16 @@ import { requireUser } from '@/lib/auth'
 import { loadSession } from '@/lib/session'
 import { writeAudit } from '@/lib/audit'
 import { AuthzError } from '@/lib/errors'
+import { notifyUser } from '@/services/notifications'
+
+async function notifySessionRevoked(targetId: string, actorId: string, title: string) {
+  if (targetId === actorId) return
+  try {
+    await notifyUser(targetId, { actorId, type: 'ACCOUNT', entity: 'User', entityId: targetId, title, href: '/account' })
+  } catch (err) {
+    console.warn('[sessions] revoke notify failed (best-effort):', err)
+  }
+}
 
 const SESSION_SELECT = {
   id: true,
@@ -27,14 +37,17 @@ export async function listSessionsForUser(userId: string) {
 
 export async function revokeSession(sessionId: string) {
   const u = await requireUser('update', 'User')
+  const row = await db.userSession.findUnique({ where: { id: sessionId }, select: { userId: true } })
   await db.userSession.updateMany({ where: { id: sessionId, revokedAt: null }, data: { revokedAt: new Date() } })
   await writeAudit({ actorId: u.id, action: 'UPDATE', entity: 'User', entityId: sessionId, after: { revokedSession: true } })
+  if (row?.userId) await notifySessionRevoked(row.userId, u.id, 'تم إنهاء إحدى جلساتك بواسطة مسؤول')
 }
 
 export async function revokeAllUserSessions(userId: string) {
   const u = await requireUser('update', 'User')
   await db.userSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } })
   await writeAudit({ actorId: u.id, action: 'UPDATE', entity: 'User', entityId: userId, after: { revokedAllSessions: true } })
+  await notifySessionRevoked(userId, u.id, 'تم إنهاء جميع جلساتك بواسطة مسؤول')
 }
 
 // ── Self-service (ownership-scoped, NOT gated by the User entity) ────────────

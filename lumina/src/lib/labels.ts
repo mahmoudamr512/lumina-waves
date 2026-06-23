@@ -55,6 +55,12 @@ export function formatDateAr(date: Date | string, withMonthLong = false): string
   })
 }
 
+/** Whole days from now until a date (negative once past). Plain helper so callers
+ * (incl. server components) can show a countdown without an impure call in render. */
+export function daysFromNow(date: Date | string): number {
+  return Math.ceil((new Date(date).getTime() - Date.now()) / 86_400_000)
+}
+
 const arNum = (n: number) => n.toLocaleString('ar-EG')
 
 /** Arabic count word: 1→singular, 2→dual, 3-10→"{n} {few}", else→"{n} {many}". */
