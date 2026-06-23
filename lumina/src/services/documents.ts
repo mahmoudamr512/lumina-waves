@@ -8,6 +8,7 @@ import { writeAudit } from '@/lib/audit'
 import { renderContract } from '@/templates/contracts'
 import { renderPdf } from '@/lib/pdf'
 import { queues } from '@/lib/queue'
+import { notifyRecordActivity } from '@/services/notifications'
 
 const STORAGE = process.env.STORAGE_DIR ?? './.storage'
 
@@ -108,6 +109,18 @@ export async function generateContractPdf(contractId: string) {
   try { await queues.drive.add('backup', { clientId: k.client.id }) } catch (err) {
     console.warn('[generateContractPdf] Drive enqueue failed (best-effort):', err)
   }
+  try {
+    await notifyRecordActivity({
+      entity: 'MasterContract',
+      entityId: k.id,
+      clientId: k.client.id,
+      actorId: u.id,
+      title: 'تم إنشاء ملف PDF للعقد',
+      href: `/contracts/${k.id}`,
+    })
+  } catch (err) {
+    console.warn('[generateContractPdf] notify failed (best-effort):', err)
+  }
 
   return doc
 }
@@ -184,8 +197,8 @@ export async function uploadDocument(input: {
     console.warn('[uploadDocument] OCR enqueue failed (best-effort):', err)
   }
   // Best-effort Drive backup — resolve owning clientId via contractId, annexId, or folderId
+  let clientId: string | undefined
   try {
-    let clientId: string | undefined
     if (input.contractId) {
       const k = await db.masterContract.findUnique({ where: { id: input.contractId }, select: { clientId: true } })
       clientId = k?.clientId
@@ -199,6 +212,23 @@ export async function uploadDocument(input: {
     if (clientId) await queues.drive.add('backup', { clientId })
   } catch (err) {
     console.warn('[uploadDocument] Drive enqueue failed (best-effort):', err)
+  }
+  // Best-effort: notify watchers of the attached record + client about the upload.
+  try {
+    const entity = input.contractId ? 'MasterContract' : input.annexId ? 'Annex' : 'Client'
+    const entityId = input.contractId ?? input.annexId ?? clientId
+    if (entityId) {
+      await notifyRecordActivity({
+        entity,
+        entityId,
+        clientId,
+        actorId: u.id,
+        title: 'تم رفع مستند جديد',
+        href: input.contractId ? `/contracts/${input.contractId}` : clientId ? `/clients/${clientId}` : '/documents',
+      })
+    }
+  } catch (err) {
+    console.warn('[uploadDocument] notify failed (best-effort):', err)
   }
   return doc
 }
