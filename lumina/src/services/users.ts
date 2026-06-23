@@ -4,7 +4,26 @@ import { hashPassword } from '@/lib/password'
 import { writeAudit } from '@/lib/audit'
 import { ValidationError } from '@/lib/errors'
 import { saveAvatarFile } from '@/lib/avatars'
+import { notify, notifyUser, listAdminIds, notifyCreatorOnDelete } from '@/services/notifications'
+import { queueEmail } from '@/lib/notify-email'
 import type { Role } from '@/generated/prisma/client'
+
+const ROLE_AR: Record<Role, string> = {
+  ADMIN: 'مدير النظام',
+  OPERATIONS: 'العمليات',
+  LEGAL: 'الشؤون القانونية',
+  FINANCE: 'المالية',
+  VIEWER: 'مشاهد',
+}
+
+/** Fire a best-effort callback; notification/email failures never break the mutation. */
+async function bestEffort(label: string, fn: () => Promise<void>) {
+  try {
+    await fn()
+  } catch (err) {
+    console.warn(`[users] ${label} notify failed (best-effort):`, err)
+  }
+}
 
 /** Projection that NEVER includes passwordHash. */
 const USER_SELECT = {
@@ -73,6 +92,17 @@ export async function createUser(input: { email: string; name: string; role: Rol
       select: USER_SELECT,
     })
     await writeAudit({ actorId: u.id, action: 'CREATE', entity: 'User', entityId: row.id, after: row })
+    await bestEffort('createUser', async () => {
+      await notify({
+        recipientIds: await listAdminIds(),
+        actorId: u.id,
+        type: 'ADMIN',
+        entity: 'User',
+        entityId: row.id,
+        title: `تم إنشاء مستخدم جديد: ${row.name}`,
+        href: '/users',
+      })
+    })
     return row
   } catch (e) {
     if (isUniqueError(e)) throw new ValidationError('DUPLICATE_EMAIL')
@@ -104,6 +134,16 @@ export async function changeRole(id: string, role: Role) {
   }
   const row = await db.user.update({ where: { id }, data: { role }, select: USER_SELECT })
   await writeAudit({ actorId: u.id, action: 'UPDATE', entity: 'User', entityId: id, after: { role } })
+  await bestEffort('changeRole', () =>
+    notifyUser(id, {
+      actorId: u.id,
+      type: 'ACCOUNT',
+      entity: 'User',
+      entityId: id,
+      title: `تم تغيير دورك إلى «${ROLE_AR[role]}»`,
+      href: '/account',
+    }),
+  )
   return row
 }
 
@@ -112,6 +152,18 @@ export async function setUserPassword(id: string, password: string) {
   await db.user.update({ where: { id }, data: { passwordHash: await hashPassword(password) } })
   await revokeUserSessions(id) // force re-login everywhere after an admin reset
   await writeAudit({ actorId: u.id, action: 'UPDATE', entity: 'User', entityId: id, after: { passwordReset: true } })
+  await bestEffort('setUserPassword', async () => {
+    const target = await db.user.findUnique({ where: { id }, select: { email: true } })
+    const title = 'تمت إعادة تعيين كلمة المرور الخاصة بك'
+    await notifyUser(id, { actorId: u.id, type: 'ACCOUNT', entity: 'User', entityId: id, title, href: '/account' })
+    if (target?.email) {
+      await queueEmail(
+        target.email,
+        title,
+        `<p>${title} بواسطة أحد المسؤولين. تم تسجيل خروجك من جميع الأجهزة؛ يرجى تسجيل الدخول بكلمة المرور الجديدة.</p>`,
+      )
+    }
+  })
   return getUser(id)
 }
 
@@ -122,6 +174,11 @@ export async function disableUser(id: string) {
   const row = await db.user.update({ where: { id }, data: { disabledAt: new Date() }, select: USER_SELECT })
   await revokeUserSessions(id)
   await writeAudit({ actorId: u.id, action: 'UPDATE', entity: 'User', entityId: id, after: { disabled: true } })
+  await bestEffort('disableUser', async () => {
+    const title = 'تم تعطيل حسابك'
+    await notifyUser(id, { actorId: u.id, type: 'ACCOUNT', entity: 'User', entityId: id, title, href: '/login' })
+    if (row.email) await queueEmail(row.email, title, `<p>${title}. للاستفسار يرجى التواصل مع مسؤول النظام.</p>`)
+  })
   return row
 }
 
@@ -136,9 +193,11 @@ export async function deleteUser(id: string) {
   const u = await requireUser('delete', 'User')
   assertNotSelf(u.id, id)
   await assertNotLastAdmin(id)
+  const target = await db.user.findUnique({ where: { id }, select: { name: true } })
   await revokeUserSessions(id)
   await db.$softDelete('User', id, new Date(Date.now() + PURGE_GRACE_MS))
   await writeAudit({ actorId: u.id, action: 'DELETE', entity: 'User', entityId: id })
+  await bestEffort('deleteUser', () => notifyCreatorOnDelete('User', id, u.id, target?.name ?? 'مستخدم'))
   return { id }
 }
 
