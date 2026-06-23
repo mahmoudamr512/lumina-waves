@@ -24,6 +24,7 @@ import {
 } from '@/components/ui'
 import { TERRITORY_AR, CREDIT_ROLE_AR, WORK_STATUS_AR, DOC_STATUS_AR, termLabel, formatDateAr, daysFromNow } from '@/lib/labels'
 import AddAnnexButton from '@/app/(app)/clients/[id]/AddAnnexButton'
+import GenerateAnnexButton from '@/app/(app)/clients/[id]/GenerateAnnexButton'
 import AttachDocumentForm from '@/app/(app)/clients/[id]/AttachDocumentForm'
 import { ActivityPanel } from '@/components/activity/ActivityPanel'
 import { getEntityPanel } from '@/services/activity-panel'
@@ -172,14 +173,17 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                   <h3 className="text-sm font-semibold text-foreground">ملحق رقم {annex.number}</h3>
                   <span className="text-xs text-muted">{formatDateAr(annex.annexDate as Date, true)}</span>
                 </div>
-                {canAddWork && (
-                  <Link
-                    href={`/clients/${clientId}/annexes/${String(annex.id)}/works/new`}
-                    className={buttonClasses('ghost', 'sm')}
-                  >
-                    <IconPlus className="h-4 w-4" /> إضافة عمل
-                  </Link>
-                )}
+                <div className="flex items-center gap-2">
+                  {canGenerate && <GenerateAnnexButton annexId={String(annex.id)} contractId={id} />}
+                  {canAddWork && (
+                    <Link
+                      href={`/clients/${clientId}/annexes/${String(annex.id)}/works/new`}
+                      className={buttonClasses('ghost', 'sm')}
+                    >
+                      <IconPlus className="h-4 w-4" /> إضافة عمل
+                    </Link>
+                  )}
+                </div>
               </CardHeader>
               <CardBody className="space-y-4">
                 {annex.works.length === 0 ? (
