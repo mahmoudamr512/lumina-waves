@@ -70,7 +70,7 @@ test('getClientTree returns nested tree for ADMIN', async () => {
   const c = await createClient({ legalName: 'Tree Test', nationalId: `99000001${RUN2}` })
   const k = await createContract({
     clientId: c.id,
-    grantType: 'EXCLUSIVE_LICENSE',
+    grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
     coverage: ['DIGITAL'],

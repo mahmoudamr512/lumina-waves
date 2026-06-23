@@ -109,7 +109,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
               {contract.minPayoutCents != null && (
                 <div className="flex gap-1.5">
                   <dt className="text-muted">
-                    {contract.grantType === 'FULL_ASSIGNMENT' ? 'مبلغ التنازل:' : 'الحد الأدنى:'}
+                    {contract.grantType === 'SALE' ? 'مبلغ التنازل:' : 'الحد الأدنى:'}
                   </dt>
                   <dd className="text-foreground">
                     {((contract.minPayoutCents as number) / 100).toLocaleString('en-US')} ج.م.

@@ -39,7 +39,7 @@ async function makeExpiringContract(daysLeft: number) {
   const contract = await db.masterContract.create({
     data: {
       clientId: client.id,
-      grantType: 'EXCLUSIVE_LICENSE',
+      grantType: 'DISTRIBUTION',
       territory: 'EGYPT',
       termMonths: 12,
       coverage: ['mechanical'],
