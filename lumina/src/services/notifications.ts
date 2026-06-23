@@ -54,6 +54,110 @@ export async function createForComment(i: CreateForCommentInput): Promise<void> 
   )
 }
 
+export interface NotifyInput {
+  recipientIds: string[]
+  actorId?: string | null
+  type: string
+  entity: string
+  entityId: string
+  title: string
+  body?: string
+  href: string
+}
+
+/** Generic fan-out: dedup recipients, drop the actor, create in-app rows + best-effort push. */
+export async function notify(i: NotifyInput): Promise<void> {
+  const recipients = new Set(i.recipientIds.filter(Boolean))
+  if (i.actorId) recipients.delete(i.actorId)
+  if (recipients.size === 0) return
+  const body = i.body ?? ''
+  await db.notification.createMany({
+    data: [...recipients].map((rid) => ({
+      recipientId: rid,
+      actorId: i.actorId ?? null,
+      type: i.type,
+      entity: i.entity,
+      entityId: i.entityId,
+      title: i.title,
+      body,
+      href: i.href,
+    })),
+  })
+  await Promise.all(
+    [...recipients].map((rid) =>
+      sendPushToUser(rid, { title: i.title, body, url: i.href }).catch((e) =>
+        console.warn('[notify] push failed (best-effort):', e),
+      ),
+    ),
+  )
+}
+
+/** Notify a single user. */
+export async function notifyUser(userId: string, i: Omit<NotifyInput, 'recipientIds'>): Promise<void> {
+  await notify({ ...i, recipientIds: [userId] })
+}
+
+export async function listAdminIds(): Promise<string[]> {
+  const rows = await db.user.findMany({
+    where: { role: 'ADMIN', deletedAt: null, disabledAt: null },
+    select: { id: true },
+  })
+  return rows.map((r) => r.id)
+}
+
+export async function listAdminLegalIds(): Promise<string[]> {
+  const rows = await db.user.findMany({
+    where: { role: { in: ['ADMIN', 'LEGAL'] }, deletedAt: null, disabledAt: null },
+    select: { id: true },
+  })
+  return rows.map((r) => r.id)
+}
+
+/** Notify watchers of a record and its parent client about activity on it. */
+export async function notifyRecordActivity(i: {
+  entity: string
+  entityId: string
+  clientId?: string
+  actorId: string
+  title: string
+  href: string
+}): Promise<void> {
+  const ids = new Set<string>(await listWatcherIds(i.entity, i.entityId))
+  if (i.clientId) for (const x of await listWatcherIds('Client', i.clientId)) ids.add(x)
+  await notify({
+    recipientIds: [...ids],
+    actorId: i.actorId,
+    type: 'ACTIVITY',
+    entity: i.entity,
+    entityId: i.entityId,
+    title: i.title,
+    href: i.href,
+  })
+}
+
+/** On soft-delete, notify the original creator (resolved from the CREATE audit row). */
+export async function notifyCreatorOnDelete(
+  entity: string,
+  entityId: string,
+  deleterId: string,
+  label: string,
+): Promise<void> {
+  const row = await db.auditLog.findFirst({
+    where: { entity, entityId, action: 'CREATE' },
+    orderBy: { createdAt: 'asc' },
+    select: { actorId: true },
+  })
+  const creator = row?.actorId
+  if (!creator || creator === deleterId) return
+  await notifyUser(creator, {
+    type: 'TRASH',
+    entity,
+    entityId,
+    title: `تم نقل «${label}» إلى المحذوفات`,
+    href: '/overview',
+  })
+}
+
 async function me() {
   const s = await loadSession()
   if (!s) throw new AuthzError('UNAUTHENTICATED')
