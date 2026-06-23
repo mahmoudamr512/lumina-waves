@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { AuthzError } from '@/lib/errors'
 import { writeAudit } from '@/lib/audit'
-import { renderContract } from '@/templates/contracts'
+import { renderContract, renderAnnex } from '@/templates/contracts'
 import { renderPdf } from '@/lib/pdf'
 import { queues } from '@/lib/queue'
 import { notifyRecordActivity } from '@/services/notifications'
@@ -120,6 +120,87 @@ export async function generateContractPdf(contractId: string) {
     })
   } catch (err) {
     console.warn('[generateContractPdf] notify failed (best-effort):', err)
+  }
+
+  return doc
+}
+
+/**
+ * Generate a prefilled DRAFT PDF for a single annex (ملحق): the works table is
+ * filled from the annex's works + credits, party/date framing from the parent
+ * contract + client. Same RBAC/sensitive-data gate as contract generation
+ * (embeds the National ID → ADMIN/LEGAL only). The draft is attached to the
+ * annex and appears in its documents list, downloadable like any document.
+ */
+export async function generateAnnexPdf(annexId: string) {
+  const u = await requireUser('create', 'Document')
+  if (!SENSITIVE_DOC_ROLES.includes(u.role)) throw new AuthzError('FORBIDDEN')
+
+  const a = await db.annex.findUnique({
+    where: { id: annexId },
+    include: {
+      contract: { include: { client: true } },
+      // Soft-delete extension does NOT filter nested includes — exclude deleted works manually.
+      works: { where: { deletedAt: null }, include: { credits: true } },
+    },
+  })
+  if (!a || !a.contract) throw new Error('annex not found')
+  const client = a.contract.client
+
+  const fmtAr = (d: Date) =>
+    new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d)
+  const credit = (w: { credits: { role: string; name: string }[] }, role: string) =>
+    w.credits.find((c) => c.role === role)?.name ?? ''
+
+  const html = renderAnnex({
+    number: a.number,
+    masterDateAr: fmtAr(a.contract.signedDate ?? a.contract.createdAt),
+    annexDateAr: fmtAr(a.annexDate),
+    party1Name: client.legalName,
+    party1StageName: client.stageName ?? undefined,
+    party1NationalId: client.nationalId,
+    party1Address: client.address ?? undefined,
+    works: a.works.map((w) => ({
+      titleAr: w.title,
+      singer: credit(w, 'PERFORMER') || (client.stageName ?? ''),
+      lyricist: credit(w, 'AUTHOR'),
+      composer: credit(w, 'COMPOSER'),
+      arranger: credit(w, 'ARRANGER'),
+    })),
+    regNo: `${a.id.slice(-5).toUpperCase()} / ${a.annexDate.getFullYear()}`,
+  })
+
+  const buf = await renderPdf(html)
+  const filename = `annex-${a.id}-draft.pdf`
+  const storageDir = path.resolve(STORAGE)
+  await mkdir(storageDir, { recursive: true })
+  const storagePath = path.join(storageDir, filename)
+  await writeFile(storagePath, buf)
+
+  const doc = await db.document.create({
+    data: { filename, storagePath, status: 'DRAFT', annexId: a.id },
+  })
+  await writeAudit({
+    actorId: u.id,
+    action: 'CREATE',
+    entity: 'Document',
+    entityId: doc.id,
+    after: { filename, status: 'DRAFT' },
+  })
+  try { await queues.drive.add('backup', { clientId: client.id }) } catch (err) {
+    console.warn('[generateAnnexPdf] Drive enqueue failed (best-effort):', err)
+  }
+  try {
+    await notifyRecordActivity({
+      entity: 'MasterContract',
+      entityId: a.contract.id,
+      clientId: client.id,
+      actorId: u.id,
+      title: `تم إنشاء مسودة PDF للملحق رقم ${a.number}`,
+      href: `/contracts/${a.contract.id}`,
+    })
+  } catch (err) {
+    console.warn('[generateAnnexPdf] notify failed (best-effort):', err)
   }
 
   return doc

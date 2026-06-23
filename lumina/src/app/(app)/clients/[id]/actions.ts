@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAnnex } from '@/services/annexes'
-import { uploadDocument } from '@/services/documents'
+import { uploadDocument, generateAnnexPdf } from '@/services/documents'
 import { createRelease, addTrackToRelease } from '@/services/releases'
 import { createFolder } from '@/services/folders'
 import { AuthzError } from '@/lib/errors'
@@ -30,6 +30,31 @@ export async function addAnnex(
   }
 
   revalidatePath('/clients/' + clientId)
+  return { error: null, ok: true }
+}
+
+export interface GenAnnexState {
+  error: string | null
+  ok?: boolean
+}
+
+/** Generate a prefilled DRAFT PDF for an annex; it appears in the annex's documents. */
+export async function generateAnnexDraft(
+  _prev: GenAnnexState,
+  formData: FormData,
+): Promise<GenAnnexState> {
+  const annexId = String(formData.get('annexId') ?? '').trim()
+  const contractId = String(formData.get('contractId') ?? '').trim()
+  if (!annexId) return { error: 'معرّف الملحق مفقود.' }
+
+  try {
+    await generateAnnexPdf(annexId)
+  } catch (err) {
+    if (err instanceof AuthzError) return { error: 'ليس لديك صلاحية لإنشاء مسودة الملحق.' }
+    return { error: 'تعذّر إنشاء مسودة الملحق. يُرجى المحاولة مرة أخرى.' }
+  }
+
+  if (contractId) revalidatePath('/contracts/' + contractId)
   return { error: null, ok: true }
 }
 

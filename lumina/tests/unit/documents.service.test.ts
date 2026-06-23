@@ -10,12 +10,13 @@ vi.mock('@/lib/pdf', () => ({ renderPdf: vi.fn(async () => Buffer.from('%PDF-fak
 
 // Capture the data passed to the contract template so we can assert WHICH works
 // (live vs soft-deleted) are rendered into the PDF.
-const { renderContractSpy } = vi.hoisted(() => ({
+const { renderContractSpy, renderAnnexSpy } = vi.hoisted(() => ({
   renderContractSpy: vi.fn<(grantType: unknown, opts: { works?: Array<{ titleAr: string }> }) => string>(
     () => '<html>fake</html>',
   ),
+  renderAnnexSpy: vi.fn<(d: { works?: Array<{ titleAr: string }> }) => string>(() => '<html>annex</html>'),
 }))
-vi.mock('@/templates/contracts', () => ({ renderContract: renderContractSpy }))
+vi.mock('@/templates/contracts', () => ({ renderContract: renderContractSpy, renderAnnex: renderAnnexSpy }))
 
 // Mock queue for uploadDocument tests — no Redis needed
 vi.mock('@/lib/queue', () => ({
@@ -28,7 +29,7 @@ vi.mock('@/lib/queue', () => ({
   },
 }))
 
-import { generateContractPdf, markExecuted } from '@/services/documents'
+import { generateContractPdf, generateAnnexPdf, markExecuted } from '@/services/documents'
 import { createContract } from '@/services/contracts'
 import { createAnnex } from '@/services/annexes'
 import { createWork } from '@/services/works'
@@ -69,6 +70,39 @@ test('generateContractPdf creates a DRAFT document', async () => {
   expect(doc.status).toBe('DRAFT')
   expect(doc.contractId).toBe(k.id)
   expect(doc.filename).toMatch(/contract-.+-draft\.pdf/)
+})
+
+test('generateAnnexPdf creates a prefilled DRAFT attached to the annex', async () => {
+  const c = await createClient({ legalName: 'Annex Gen', nationalId: uid() })
+  const k = await createContract({
+    clientId: c.id,
+    grantType: 'DISTRIBUTION',
+    territory: 'EGYPT',
+    termMonths: 12,
+    coverage: ['DIGITAL'],
+  })
+  const annex = await createAnnex({ contractId: k.id, annexDate: new Date() })
+  await createWork({ title: 'أغنية الاختبار', annexId: annex.id, credits: [{ role: 'PERFORMER', name: 'مطرب' }] })
+
+  renderAnnexSpy.mockClear()
+  const doc = await generateAnnexPdf(annex.id)
+
+  expect(doc.status).toBe('DRAFT')
+  expect(doc.annexId).toBe(annex.id)
+  expect(doc.filename).toMatch(/annex-.+-draft\.pdf/)
+  // The annex's live work is prefilled into the template.
+  const passed = renderAnnexSpy.mock.calls[0][0]
+  expect(passed.works?.some((w) => w.titleAr === 'أغنية الاختبار')).toBe(true)
+})
+
+test('generateAnnexPdf is rejected for non-ADMIN/LEGAL roles', async () => {
+  const c = await createClient({ legalName: 'Annex RBAC', nationalId: uid() })
+  const k = await createContract({
+    clientId: c.id, grantType: 'DISTRIBUTION', territory: 'EGYPT', termMonths: 12, coverage: ['DIGITAL'],
+  })
+  const annex = await createAnnex({ contractId: k.id, annexDate: new Date() })
+  mockRequireUser.mockResolvedValueOnce({ id: 'op', role: 'OPERATIONS' })
+  await expect(generateAnnexPdf(annex.id)).rejects.toThrow(AuthzError)
 })
 
 test('generateContractPdf writes an audit row', async () => {
