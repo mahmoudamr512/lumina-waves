@@ -70,7 +70,7 @@ export default async function ContractsPage() {
                     <TD className="text-muted">
                       {TERRITORY_AR[contract.territory as string] ?? String(contract.territory)}
                     </TD>
-                    <TD className="text-muted">{termLabel(contract.termMonths as number)}</TD>
+                    <TD className="text-muted">{contract.termMonths != null ? termLabel(contract.termMonths as number) : '—'}</TD>
                     {canGenerate && (
                       <TD className="relative z-10">
                         <Link

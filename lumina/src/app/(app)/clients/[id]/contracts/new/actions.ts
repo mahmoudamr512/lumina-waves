@@ -18,7 +18,10 @@ export async function addContract(
   const clientId = String(formData.get('clientId') ?? '').trim()
   const grantType = String(formData.get('grantType') ?? '').trim() as 'SALE' | 'DISTRIBUTION'
   const territory = String(formData.get('territory') ?? '').trim()
-  const termMonths = parseInt(String(formData.get('termMonths') ?? '36'), 10)
+  // SALE = perpetual buyout, no contract length. Only parse termMonths for DISTRIBUTION.
+  const termMonthsRaw = formData.get('termMonths')
+  const termMonths =
+    grantType === 'SALE' || termMonthsRaw == null ? undefined : parseInt(String(termMonthsRaw), 10)
   const revenueSharePct = parseFloat(String(formData.get('revenueSharePct') ?? '70'))
   const settlementFreq = String(formData.get('settlementFreq') ?? '').trim()
   const noticeDays = parseInt(String(formData.get('noticeDays') ?? '90'), 10)
@@ -46,7 +49,7 @@ export async function addContract(
       clientId,
       grantType,
       territory,
-      termMonths: isNaN(termMonths) ? 36 : termMonths,
+      termMonths: termMonths === undefined ? undefined : isNaN(termMonths) ? 36 : termMonths,
       coverage,
       revenueShareBps: isNaN(revenueShareBps) ? undefined : revenueShareBps,
       minPayoutCents: isNaN(amountEgp) ? undefined : Math.round(amountEgp * 100),

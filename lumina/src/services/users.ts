@@ -201,6 +201,20 @@ export async function deleteUser(id: string) {
   return { id }
 }
 
+/**
+ * Permanent removal — soft-deletes the user AND immediately sets `purgedAt`, so
+ * it's not in the 3-day trash recovery window. The row stays in the DB (filtered
+ * out by the soft-delete extension) so foreign-key references from audit/comments
+ * stay valid. Admin-only; same safety checks as soft delete (via deleteUser).
+ */
+export async function hardDeleteUser(id: string) {
+  // deleteUser handles auth/self/last-admin checks + session revoke + audit + notify.
+  const r = await deleteUser(id)
+  // Mark immediately purged so it bypasses the 3-day trash recovery window.
+  await db.user.updateMany({ where: { id }, data: { purgedAt: new Date() } })
+  return r
+}
+
 export async function setUserAvatar(id: string, file: File) {
   const u = await requireUser('update', 'User')
   const avatarPath = await saveAvatarFile(file)

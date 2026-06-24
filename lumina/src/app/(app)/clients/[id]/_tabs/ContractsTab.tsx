@@ -65,10 +65,12 @@ export function ContractsTab({
                         {TERRITORY_AR[contract.territory as string] ?? String(contract.territory)}
                       </dd>
                     </div>
-                    <div className="flex gap-1.5">
-                      <dt className="text-muted">المدة:</dt>
-                      <dd className="text-foreground">{termLabel(contract.termMonths as number)}</dd>
-                    </div>
+                    {contract.termMonths != null && (
+                      <div className="flex gap-1.5">
+                        <dt className="text-muted">المدة:</dt>
+                        <dd className="text-foreground">{termLabel(contract.termMonths as number)}</dd>
+                      </div>
+                    )}
                     <div className="flex gap-1.5">
                       <dt className="text-muted">الملاحق:</dt>
                       <dd className="text-foreground tabular-nums">{annexCount}</dd>

@@ -73,10 +73,12 @@ export default async function GenerateContractPage({ params }: { params: Promise
                 <dt className="text-muted">النطاق الجغرافي</dt>
                 <dd className="text-foreground">{TERRITORY_AR[contract.territory] ?? contract.territory}</dd>
               </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted">المدة</dt>
-                <dd className="text-foreground">{termLabel(contract.termMonths as number)}</dd>
-              </div>
+              {contract.termMonths != null && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted">المدة</dt>
+                  <dd className="text-foreground">{termLabel(contract.termMonths as number)}</dd>
+                </div>
+              )}
               <div className="flex flex-col gap-1">
                 <dt className="text-muted">صور الاستغلال</dt>
                 <dd>

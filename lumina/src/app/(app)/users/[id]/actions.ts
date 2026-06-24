@@ -9,6 +9,7 @@ import {
   disableUser,
   enableUser,
   deleteUser,
+  hardDeleteUser,
   setUserAvatar,
   removeUserAvatar,
 } from '@/services/users'
@@ -72,6 +73,18 @@ export async function removeUser(_prev: ActionState, fd: FormData): Promise<Acti
   const id = String(fd.get('id') ?? '')
   try {
     await deleteUser(id)
+  } catch (e) {
+    return { error: userErrorMessage(e) }
+  }
+  revalidatePath('/users')
+  redirect('/users')
+}
+
+/** Permanent delete (no 3-day recovery). Admin-only via the underlying service. */
+export async function hardRemoveUser(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const id = String(fd.get('id') ?? '')
+  try {
+    await hardDeleteUser(id)
   } catch (e) {
     return { error: userErrorMessage(e) }
   }
