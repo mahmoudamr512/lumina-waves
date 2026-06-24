@@ -110,7 +110,7 @@ test('generateContractPdf writes an audit row', async () => {
   const k = await createContract({
     clientId: c.id,
     grantType: 'SALE',
-    territory: 'MENA',
+    territory: 'WORLDWIDE',
     termMonths: 24,
     coverage: ['DIGITAL', 'BROADCAST'],
   })

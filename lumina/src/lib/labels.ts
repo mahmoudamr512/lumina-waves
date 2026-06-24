@@ -4,7 +4,6 @@
 
 export const TERRITORY_AR: Record<string, string> = {
   EGYPT: 'جمهورية مصر العربية',
-  MENA: 'منطقة الشرق الأوسط وشمال إفريقيا',
   WORLDWIDE: 'جميع أنحاء العالم',
 }
 

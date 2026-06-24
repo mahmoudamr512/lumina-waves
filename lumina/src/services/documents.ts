@@ -72,7 +72,8 @@ export async function generateContractPdf(contractId: string) {
     party1NationalId: k.client.nationalId,
     party1Address: k.client.address ?? undefined,
     territory: k.territory,
-    termMonths: k.termMonths,
+    // SALE contracts have no termMonths; pass 0 — the SALE template ignores it.
+    termMonths: k.termMonths ?? 0,
     coverage: k.coverage as string[],
     revenueSharePct: k.revenueShareBps != null ? k.revenueShareBps / 100 : undefined,
     minPayoutUsd: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,

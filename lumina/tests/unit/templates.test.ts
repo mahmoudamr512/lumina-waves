@@ -74,7 +74,7 @@ test('renderContract escapes malicious party1NationalId', () => {
   const html = renderContract('SALE', {
     party1Name: 'سالم محمد',
     party1NationalId: '"><img src=x onerror=alert(1)>',
-    territory: 'MENA',
+    territory: 'WORLDWIDE',
     termMonths: 24,
     coverage: ['DIGITAL'],
   })

@@ -27,7 +27,7 @@ test('contract: create licence contract → contract detail → generate PDF', a
   await expect(page.getByRole('link', { name: /تحميل مسودة PDF/ })).toBeVisible({ timeout: 40_000 })
 })
 
-test('sale contract: choose بيع، استغلال → buyout amount field appears → save', async ({ page }) => {
+test('sale contract: choose بيع وتنازل → buyout amount field appears → save', async ({ page }) => {
   test.slow()
   await login(page)
   await createClient(page)
@@ -44,7 +44,7 @@ test('sale contract: choose بيع، استغلال → buyout amount field appe
 
   // Lands on the contract detail page; its header shows the grant label.
   await expect(page).toHaveURL(/\/contracts\/[a-z0-9]+$/i, { timeout: 20_000 })
-  await expect(page.getByRole('heading', { name: 'بيع، استغلال' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'بيع وتنازل' })).toBeVisible()
 })
 
 test('folder: create folder (modal) → attach file (modal) → download link appears', async ({ page }) => {

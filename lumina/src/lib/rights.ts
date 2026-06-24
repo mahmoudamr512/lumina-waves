@@ -1,7 +1,7 @@
 // src/lib/rights.ts
 export const GRANT_TYPES = {
-  SALE:         { ar: 'بيع، استغلال', en: 'Sale & exploitation' },
-  DISTRIBUTION: { ar: 'توزيع',        en: 'Distribution' },
+  SALE:         { ar: 'بيع وتنازل', en: 'Sale & assignment' },
+  DISTRIBUTION: { ar: 'توزيع',      en: 'Distribution' },
 } as const
 
 export const COVERAGE = {
@@ -21,7 +21,7 @@ export const MORAL_RIGHTS_NOTE = {
 
 // Plan-mandated territory whitelist — exported so callers can validate/enumerate without
 // hitting an undocumented runtime throw.
-export const TERRITORIES = ['EGYPT','MENA','WORLDWIDE'] as const
+export const TERRITORIES = ['EGYPT','WORLDWIDE'] as const
 export type Territory = typeof TERRITORIES[number]
 
 export type GrantInput = { grantType: keyof typeof GRANT_TYPES; territory: string; coverage: string[] }

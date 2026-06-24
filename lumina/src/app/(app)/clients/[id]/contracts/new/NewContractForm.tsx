@@ -8,7 +8,6 @@ import { Button, Field, Input, Select, buttonClasses, useToast } from '@/compone
 
 const TERRITORY_OPTIONS = [
   { value: 'EGYPT', label: 'جمهورية مصر العربية' },
-  { value: 'MENA', label: 'الشرق الأوسط وشمال إفريقيا' },
   { value: 'WORLDWIDE', label: 'جميع أنحاء العالم' },
 ]
 

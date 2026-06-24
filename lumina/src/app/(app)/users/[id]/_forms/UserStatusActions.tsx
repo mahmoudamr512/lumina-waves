@@ -1,6 +1,6 @@
 'use client'
 
-import { resetPassword, toggleDisabled, removeUser, setAvatar, clearAvatar, type ActionState } from '../actions'
+import { resetPassword, toggleDisabled, removeUser, hardRemoveUser, setAvatar, clearAvatar, type ActionState } from '../actions'
 import { useActionToast } from '@/components/forms/useActionToast'
 import { useQuickAdd } from '@/app/(app)/clients/[id]/_forms/useQuickAdd'
 import { Button, Dialog, Field, Input, FileInput, buttonClasses } from '@/components/ui'
@@ -16,7 +16,8 @@ export function UserStatusActions({
   const avatarSet = useActionToast(setAvatar, initial, 'تم تحديث الصورة')
   const avatarClear = useActionToast(clearAvatar, initial, 'تمت إزالة الصورة')
   const pw = useQuickAdd(resetPassword, initial, 'تم تعيين كلمة مرور جديدة')
-  const del = useQuickAdd(removeUser, initial, 'تم حذف المستخدم')
+  const del = useQuickAdd(removeUser, initial, 'تم نقل المستخدم إلى المحذوفات')
+  const hardDel = useQuickAdd(hardRemoveUser, initial, 'تم حذف المستخدم نهائيًا')
 
   return (
     <div className="space-y-5">
@@ -77,16 +78,54 @@ export function UserStatusActions({
         </form>
       </Dialog>
 
-      <Dialog open={del.open} onClose={() => del.setOpen(false)} title="حذف المستخدم">
-        <form action={del.formAction} className="space-y-4">
-          <input type="hidden" name="id" value={user.id} />
-          <p className="text-sm text-muted">سيتم نقل المستخدم إلى المحذوفات ولن يتمكّن من تسجيل الدخول. يمكن استرجاعه لاحقًا.</p>
-          {del.state.error && <p role="alert" className="text-sm text-danger">{del.state.error}</p>}
-          <div className="flex gap-3">
-            <Button type="submit" variant="danger" loading={del.pending}>تأكيد الحذف</Button>
-            <button type="button" onClick={() => del.setOpen(false)} className={buttonClasses('ghost')}>إلغاء</button>
+      <Dialog
+        open={del.open || hardDel.open}
+        onClose={() => { del.setOpen(false); hardDel.setOpen(false) }}
+        title="حذف المستخدم"
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-muted">اختر طريقة الحذف. الحذف النهائي لا يمكن التراجع عنه.</p>
+
+          {/* Soft delete — recoverable for 3 days */}
+          <form action={del.formAction} className="space-y-3 rounded-lg border border-line p-4">
+            <input type="hidden" name="id" value={user.id} />
+            <div>
+              <p className="text-sm font-medium text-foreground">نقل إلى المحذوفات</p>
+              <p className="mt-1 text-xs text-muted">
+                يُعطَّل الحساب وتُنهى جلساته، ويمكن استرجاعه خلال <strong>٣ أيام</strong> من سلة المحذوفات.
+              </p>
+            </div>
+            {del.state.error && <p role="alert" className="text-sm text-danger">{del.state.error}</p>}
+            <Button type="submit" variant="secondary" loading={del.pending}>
+              نقل إلى المحذوفات
+            </Button>
+          </form>
+
+          {/* Hard delete — permanent */}
+          <form action={hardDel.formAction} className="space-y-3 rounded-lg border border-danger/40 p-4">
+            <input type="hidden" name="id" value={user.id} />
+            <div>
+              <p className="text-sm font-medium text-danger">حذف نهائي</p>
+              <p className="mt-1 text-xs text-muted">
+                يُحذف المستخدم نهائيًا دون فترة استرجاع. لا يمكن التراجع عن هذا الإجراء.
+              </p>
+            </div>
+            {hardDel.state.error && <p role="alert" className="text-sm text-danger">{hardDel.state.error}</p>}
+            <Button type="submit" variant="danger" loading={hardDel.pending}>
+              حذف نهائي
+            </Button>
+          </form>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => { del.setOpen(false); hardDel.setOpen(false) }}
+              className={buttonClasses('ghost')}
+            >
+              إلغاء
+            </button>
           </div>
-        </form>
+        </div>
       </Dialog>
     </div>
   )

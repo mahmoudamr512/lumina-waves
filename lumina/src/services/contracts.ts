@@ -10,7 +10,8 @@ export async function createContract(input: {
   clientId: string
   grantType: 'SALE' | 'DISTRIBUTION'
   territory: string
-  termMonths: number
+  /** Optional — null for SALE (perpetual buyout), required for DISTRIBUTION. */
+  termMonths?: number | null
   coverage: string[]
   autoRenew?: boolean
   noticeDays?: number
@@ -21,13 +22,16 @@ export async function createContract(input: {
 }) {
   const u = await requireUser('create', 'MasterContract')
   validateGrant({ grantType: input.grantType, territory: input.territory, coverage: input.coverage })
-  // A SALE (بيع، استغلال) is a perpetual buyout → no expiry. A DISTRIBUTION
-  // (توزيع) is term-based → auto-derive expiry from the signed date + term.
+  // A SALE (بيع وتنازل) is a perpetual buyout → no termMonths, no expiry.
+  // A DISTRIBUTION (توزيع) is term-based → auto-derive expiry from signedDate + term.
   const expiresAt =
-    input.grantType === 'DISTRIBUTION' && input.signedDate
+    input.grantType === 'DISTRIBUTION' && input.signedDate && input.termMonths
       ? new Date(new Date(input.signedDate).setMonth(new Date(input.signedDate).getMonth() + input.termMonths))
       : null
-  const row = await db.masterContract.create({ data: { ...input, coverage: input.coverage, expiresAt } })
+  const termMonths = input.grantType === 'SALE' ? null : (input.termMonths ?? null)
+  const row = await db.masterContract.create({
+    data: { ...input, coverage: input.coverage, termMonths, expiresAt },
+  })
   await writeAudit({ actorId: u.id, action: 'CREATE', entity: 'MasterContract', entityId: row.id, after: row })
   // Best-effort Drive backup — outage must NOT fail the mutation
   try { await queues.drive.add('backup', { clientId: row.clientId }) } catch (err) {

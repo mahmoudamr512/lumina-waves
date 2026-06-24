@@ -165,8 +165,8 @@ model MasterContract {
   client          Client     @relation(fields: [clientId], references: [id])
   clientId        String
   grantType       GrantType
-  territory       String // EGYPT | MENA | WORLDWIDE
-  termMonths      Int
+  territory       String // EGYPT | WORLDWIDE
+  termMonths      Int? // null for SALE (perpetual buyout); required for DISTRIBUTION
   autoRenew       Boolean    @default(true)
   noticeDays      Int        @default(90)
   coverage        Json // string[] of coverage keys (Art.149)
