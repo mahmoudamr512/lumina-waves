@@ -85,7 +85,7 @@ export function InstallAppBanner() {
     <div
       role="region"
       aria-label="تثبيت التطبيق"
-      className="w-full max-w-sm rounded-xl border border-gold-400/30 bg-surface/80 p-4 backdrop-blur-sm"
+      className="w-full rounded-xl border border-gold-400/30 bg-surface/80 p-4 backdrop-blur-sm"
     >
       <div className="flex items-start gap-3">
         <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gold-400/10 text-gold-200">
