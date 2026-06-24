@@ -3,7 +3,10 @@ import { redirect } from 'next/navigation'
 import { loadSession } from '@/lib/session'
 import { db } from '@/lib/db'
 import { unreadCount } from '@/services/notifications'
+import { vapidPublicKey } from '@/lib/push'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { NotificationPrompt } from '@/components/notifications/NotificationPrompt'
+import { InstallAppBanner } from '@/components/pwa/InstallAppBanner'
 import { AppSidebarShell } from '@/components/layout'
 import {
   Sidebar,
@@ -68,6 +71,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           />
         }
       >
+        <div className="mb-6 space-y-3 empty:hidden">
+          <NotificationPrompt publicKey={vapidPublicKey()} />
+          <InstallAppBanner />
+        </div>
         {children}
       </AppSidebarShell>
     </ToastProvider>
