@@ -13,5 +13,19 @@ export function RegisterSW() {
     if (document.readyState === 'complete') register()
     else window.addEventListener('load', register, { once: true })
   }, [])
+
+  // Capture the Android/Chromium install prompt as early as possible (it can fire
+  // before the login banner mounts). Stash it on window + announce it so
+  // InstallAppBanner can surface a working "install" button regardless of timing.
+  useEffect(() => {
+    const onBip = (e: Event) => {
+      e.preventDefault()
+      ;(window as unknown as { __lwInstallPrompt?: Event }).__lwInstallPrompt = e
+      window.dispatchEvent(new Event('lw-install-prompt-ready'))
+    }
+    window.addEventListener('beforeinstallprompt', onBip)
+    return () => window.removeEventListener('beforeinstallprompt', onBip)
+  }, [])
+
   return null
 }

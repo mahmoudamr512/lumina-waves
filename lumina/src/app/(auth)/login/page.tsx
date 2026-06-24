@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { AmbientBackground } from '@/components/layout'
 import { LuminaLogo } from '@/components/brand'
 import { FadeIn } from '@/components/motion'
+import { InstallAppBanner } from '@/components/pwa/InstallAppBanner'
 import { LoginForm } from './LoginForm'
 
 export const metadata = {
@@ -19,8 +20,8 @@ export default function LoginPage() {
     <main className="relative flex min-h-screen items-center justify-center px-4 py-12">
       <AmbientBackground />
 
-      <FadeIn className="w-full max-w-sm" y={16} duration={0.7}>
-        <div className="flex flex-col items-center gap-8 rounded-2xl border border-border-elevation bg-surface/80 p-8 shadow-2xl backdrop-blur-sm sm:p-10">
+      <FadeIn className="flex w-full max-w-sm flex-col items-center gap-4" y={16} duration={0.7}>
+        <div className="flex w-full flex-col items-center gap-8 rounded-2xl border border-border-elevation bg-surface/80 p-8 shadow-2xl backdrop-blur-sm sm:p-10">
           <LuminaLogo layout="stacked" size={96} title="Lumina Waves" />
 
           <div className="w-full space-y-1 text-center">
@@ -32,6 +33,9 @@ export default function LoginPage() {
             <LoginForm />
           </Suspense>
         </div>
+
+        {/* Mobile-browser-only "install the app" prompt (hidden when already installed / on desktop). */}
+        <InstallAppBanner />
       </FadeIn>
     </main>
   )
