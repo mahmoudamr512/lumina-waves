@@ -1,23 +1,26 @@
 // tests/unit/rights.test.ts
-import { GRANT_TYPES, COVERAGE, validateGrant, MORAL_RIGHTS_NOTE, TERRITORIES } from '@/lib/rights'
+import { GRANT_TYPES, COVERAGE_MODES, validateGrant, MORAL_RIGHTS_NOTE, TERRITORIES } from '@/lib/rights'
 test('grant types carry correct Arabic', () => {
   expect(GRANT_TYPES.SALE.ar).toBe('بيع وتنازل')
   expect(GRANT_TYPES.DISTRIBUTION.ar).toBe('توزيع')
 })
-test('coverage includes sync and RBT with correct Arabic', () => {
-  expect(COVERAGE.SYNC.ar).toBe('المزامنة')
-  expect(COVERAGE.RBT.ar).toBe('نغمة الانتظار')
+test('coverage modes cover RBT-only, digital-only, and both', () => {
+  expect(COVERAGE_MODES.RBT_ONLY.ar).toBe('نغمة الانتظار فقط')
+  expect(COVERAGE_MODES.DIGITAL_ONLY.ar).toBe('القنوات الرقمية فقط')
+  expect(COVERAGE_MODES.RBT_AND_DIGITAL.ar).toBe('نغمة الانتظار والقنوات الرقمية')
 })
-test('empty coverage is rejected (Article 149)', () => {
-  expect(() => validateGrant({ grantType:'DISTRIBUTION', territory:'EGYPT', coverage:[] }))
-    .toThrow(/coverage/i)
+test('validateGrant rejects an unknown coverage mode', () => {
+  expect(() => validateGrant({ grantType:'DISTRIBUTION', territory:'EGYPT', coverageMode:'BOGUS' as never }))
+    .toThrow(/coverage mode/i)
 })
 test('moral rights note is non-empty and Arabic', () => {
   expect(MORAL_RIGHTS_NOTE.ar).toContain('الحقوق الأدبية')
 })
-test('validateGrant happy path: valid grant with non-empty coverage does not throw', () => {
-  expect(() => validateGrant({ grantType:'DISTRIBUTION', territory:'WORLDWIDE', coverage:['DIGITAL','BROADCAST'] }))
-    .not.toThrow()
+test('validateGrant happy path: all three modes are valid', () => {
+  for (const mode of ['RBT_ONLY','DIGITAL_ONLY','RBT_AND_DIGITAL'] as const) {
+    expect(() => validateGrant({ grantType:'DISTRIBUTION', territory:'WORLDWIDE', coverageMode: mode }))
+      .not.toThrow()
+  }
 })
 test('TERRITORIES exports exactly the two plan-mandated values (Egypt + Worldwide)', () => {
   expect(TERRITORIES).toContain('EGYPT')

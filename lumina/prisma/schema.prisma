@@ -25,6 +25,16 @@ enum GrantType {
   DISTRIBUTION // توزيع — exploitation/distribution license (revenue share; term-based expiry)
 }
 
+/// Which exploitation-scope paragraph the contract's granting clause renders in
+/// the PDF. RBT-only covers cellular/SMS/VAS/RBT/Download-Full. Digital-only
+/// covers internet/streaming platforms + broadcast/radio/TV/satellite. Both
+/// renders the combined default. Exclusions are appended as «باستثناء …».
+enum CoverageMode {
+  RBT_ONLY
+  DIGITAL_ONLY
+  RBT_AND_DIGITAL
+}
+
 enum WorkStatus {
   PENDING_ANNEX
   LINKED
@@ -169,7 +179,8 @@ model MasterContract {
   termMonths      Int? // null for SALE (perpetual buyout); required for DISTRIBUTION
   autoRenew       Boolean    @default(true)
   noticeDays      Int        @default(90)
-  coverage        Json // string[] of coverage keys (Art.149)
+  coverageMode        CoverageMode @default(RBT_AND_DIGITAL)
+  coverageExclusions  String[]     @default([])
   revenueShareBps Int? // sensitive (basis points)
   minPayoutCents  Int? // sensitive
   settlementFreq  String? // e.g. "SEMIANNUAL"

@@ -26,7 +26,7 @@ test('createContract derives expiresAt from signedDate + termMonths', async () =
     grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['DIGITAL'],
+    coverageMode: 'RBT_AND_DIGITAL',
     signedDate: new Date('2026-01-15T00:00:00Z'),
   })
   const row = await db.masterContract.findUnique({ where: { id: k.id }, select: { expiresAt: true } })
@@ -40,7 +40,7 @@ test('annexes auto-number per contract', async () => {
     grantType: 'DISTRIBUTION',
     territory: 'WORLDWIDE',
     termMonths: 36,
-    coverage: ['DIGITAL'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
   const a1 = await createAnnex({ contractId: k.id, annexDate: new Date() })
   const a2 = await createAnnex({ contractId: k.id, annexDate: new Date() })
@@ -48,7 +48,7 @@ test('annexes auto-number per contract', async () => {
   expect(a2.number).toBe(2)
 })
 
-test('contract with empty coverage rejected', async () => {
+test('contract with invalid coverage mode is rejected', async () => {
   const c = await createClient({ legalName: 'C2', nationalId: `30000002${RUN}` })
   await expect(
     createContract({
@@ -56,9 +56,9 @@ test('contract with empty coverage rejected', async () => {
       grantType: 'DISTRIBUTION',
       territory: 'EGYPT',
       termMonths: 12,
-      coverage: [],
+      coverageMode: 'BOGUS' as never,
     }),
-  ).rejects.toThrow(/coverage/i)
+  ).rejects.toThrow(/coverage mode/i)
 })
 
 test('listContracts returns contracts with client info', async () => {
@@ -69,7 +69,7 @@ test('listContracts returns contracts with client info', async () => {
     grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['DIGITAL'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
   const all = await listContracts()
   const found = all.find((k) => k.clientId === c.id)

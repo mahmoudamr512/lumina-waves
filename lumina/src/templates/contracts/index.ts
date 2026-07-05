@@ -1,7 +1,45 @@
 import { layout, escapeHtml } from './_layout'
-import { GRANT_TYPES, COVERAGE, MORAL_RIGHTS_NOTE } from '@/lib/rights'
+import { GRANT_TYPES, MORAL_RIGHTS_NOTE, type CoverageMode } from '@/lib/rights'
 import { letterheadHtml, signatureBlockHtml, BRANDING_CSS, COMPANY } from './branding'
 import { egpInWords } from '@/lib/tafqeet'
+
+// ── Coverage paragraph blocks ────────────────────────────────────────────────
+// The granting clause of both SALE and DISTRIBUTION contracts describes the
+// exploitation scope through one or both of these two blocks. Which one appears
+// is driven by CoverageMode. Free-text `exclusions` are appended as
+// «باستثناء …» so specific platforms (e.g. «TikTok، Spotify») are surgically
+// removed from the granted scope.
+
+/** Phone-side services (cellular / IVR / SMS / VAS / RBT / Call-Tone / Download-Track-Full). */
+const COVERAGE_RBT_AR =
+  'شبكات الاتصالات والهاتف الأرضي والمحمول وخدمات التفاعل الصوتي عبر الهاتف وخدمات القيمة المضافة والرسائل القصيرة، بحيث يتمكّن مستخدم الخدمة من استغلال المصنفات بكافة أشكالها للاستماع والمشاهدة وكرنّات وتحميل الملف الصوتي كاملًا (Full Track Download)، وخدمة نغمة الانتظار (RBT / خدمة الكول تون)'
+
+/** Internet + streaming platforms + broadcast/radio/TV/satellite/transportation. */
+const COVERAGE_DIGITAL_AR =
+  'شبكة المعلومات الدولية (الإنترنت) والمتاجر الافتراضية العالمية والمنصات مثل: YouTube و YouTube Music و Facebook و Instagram و TikTok و Anghami و Spotify، وكذا من خلال وسائل النقل والدوائر الإذاعية المغلقة والقنوات الفضائية والإذاعات بأنواعها'
+
+/**
+ * Legal catch-all for future-emerging platforms/services under any name or
+ * form. Appended after the enumerated platforms so the grant covers whatever
+ * new medium emerges after signing.
+ */
+const FUTURE_TECH_AR = 'وما يستحدث منها مستقبلًا بأي مسمى أو صورة كانت'
+
+/** Compose the mode-aware coverage paragraph (with exclusions if any). */
+function coverageParagraph(mode: CoverageMode, exclusions: readonly string[] = []): string {
+  const parts: string[] = []
+  if (mode === 'RBT_ONLY' || mode === 'RBT_AND_DIGITAL') parts.push(COVERAGE_RBT_AR)
+  if (mode === 'DIGITAL_ONLY' || mode === 'RBT_AND_DIGITAL') parts.push(COVERAGE_DIGITAL_AR)
+  const platformBlock = parts.join('، و')
+  const safeExclusions = exclusions
+    .map((e) => e.trim())
+    .filter(Boolean)
+    .map(escapeHtml)
+  const exclusionsClause = safeExclusions.length
+    ? `، باستثناء: ${safeExclusions.join('، و')}`
+    : ''
+  return `${platformBlock}، ${FUTURE_TECH_AR}${exclusionsClause}`
+}
 
 export type ContractData = {
   party1Name: string
@@ -12,7 +50,10 @@ export type ContractData = {
   party1Email?: string
   territory: string
   termMonths: number
-  coverage: string[]
+  /** Which coverage-paragraph block to render in the granting clause. */
+  coverageMode: CoverageMode
+  /** Free-text items to exclude from the granted coverage (rendered as «باستثناء …»). */
+  coverageExclusions?: string[]
   /** Artist's revenue share, percent (e.g. 70). */
   revenueSharePct?: number
   /** Minimum payout threshold in USD before settlement (e.g. 350) — optional. */
@@ -138,11 +179,7 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
   const grantLabel = GRANT_TYPES[grantType].ar
   const grantNature = GRANT_NATURE_AR[grantType]
 
-  const coverageList = d.coverage
-    .map((k) => COVERAGE[k as keyof typeof COVERAGE])
-    .filter(Boolean)
-    .map((c) => `<li>${c.ar}</li>`)
-    .join('')
+  const coverageBlock = coverageParagraph(d.coverageMode, d.coverageExclusions)
 
   const intro = `
     <p class="lw-intro">أنه في يوم <strong>${dateAr}</strong> تحرر هذا العقد بمدينة <strong>${city}</strong> بين كل من:</p>
@@ -171,9 +208,7 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
     const saleClauses = [
       clause(0, '', `<p>يُعتبر التمهيد السابق جزءًا لا يتجزأ من هذا العقد ومتممًا له ولأحكامه، ولا يُفسَّر بدونه.</p>`),
       clause(1, '', `
-        <p>تنازل الطرف الأول للطرف الثاني تنازلًا نهائيًا وباتًّا — بموجب هذا العقد — عن كامل الحقوق المالية وحقوق الاستغلال الحصري في <strong>${territory}</strong> لكافة المصنفات الفنية المذكورة بهذا العقد وما يعود لها من تصوير وصور المؤدّي لها، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢ بشأن حماية حقوق الملكية الفكرية، المتاحة حاليًا أو ما يستجدّ مستقبلًا، ومنها على سبيل المثال لا الحصر: شبكات الاتصالات والهاتف الأرضي والمحمول وخدمات القيمة المضافة والرسائل القصيرة، وتحميل الملف الصوتي كاملًا (Full Track Download) وخدمة نغمة الانتظار (RBT)، وشبكة المعلومات الدولية (الإنترنت) والمتاجر الافتراضية العالمية ومنصات مثل: YouTube و YouTube Music و Facebook، وكذا من خلال وسائل النقل والدوائر الإذاعية المغلقة والقنوات الفضائية والإذاعات بأنواعها. ويصبح للطرف الثاني وحده الحق الاستئثاري في استغلال هذه المصنفات والترخيص بها أو المنع منها بأي وجه من الوجوه ودون حدّ زمني.</p>
-        <p><strong>صور الاستغلال المتنازَل عنها (طبقًا للمادة ١٤٩):</strong></p>
-        <ul class="lw-coverage">${coverageList}</ul>`),
+        <p>تنازل الطرف الأول للطرف الثاني تنازلًا نهائيًا وباتًّا — بموجب هذا العقد — عن كامل الحقوق المالية وحقوق الاستغلال الحصري في <strong>${territory}</strong> لكافة المصنفات الفنية المذكورة بهذا العقد وما يعود لها من تصوير وصور المؤدّي لها، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢ بشأن حماية حقوق الملكية الفكرية، المتاحة حاليًا أو ما يستجدّ مستقبلًا، ومنها على سبيل المثال لا الحصر: ${coverageBlock}. ويصبح للطرف الثاني وحده الحق الاستئثاري في استغلال هذه المصنفات والترخيص بها أو المنع منها بأي وجه من الوجوه ودون حدّ زمني.</p>`),
       clause(2, '', `
         <p>مقابل الحقوق المتنازَل عنها من الطرف الأول للطرف الثاني في البند السابق، يقوم الطرف الثاني بتسليم الطرف الأول مبلغًا وقدره <strong>${amount} جنيه مصري</strong>${words} عن المصنفات التالية:</p>
         ${worksTable}
@@ -182,7 +217,8 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
       clause(4, 'المراسلات والإعلانات', `
         <p>تتم الإخطارات والإنذارات والإعلانات الرسمية عن طريق التسليم باليد أو بموجب إنذار على يد محضر على العنوان المذكور بصدر هذا العقد، أو عبر البريد الإلكتروني الذي يُعدّ وسيلة قانونية ملزمة ومنتجة لجميع آثاره القانونية.</p>
         <p>(١) البريد الإلكتروني الرسمي للطرف الأول: <strong>${email}</strong></p>
-        <p>(٢) البريد الإلكتروني الرسمي للطرف الثاني: <strong>${escapeHtml(COMPANY.email)}</strong></p>`),
+        <p>(٢) البريد الإلكتروني الرسمي للطرف الثاني: <strong>${escapeHtml(COMPANY.email)}</strong></p>
+        <p>ويُقرّ كلا الطرفين بأن البريد الإلكتروني الرسمي الخاص بكلٍّ منهما سيظل تحت سيطرته الكاملة وحيازته ومسؤوليته الشخصية طوال مدة سريان هذا العقد.</p>`),
       clause(5, 'الحقوق الأدبية', `<p style="font-weight:700">${MORAL_RIGHTS_NOTE.ar}</p>`),
       clause(6, '', `<p>يخضع هذا العقد لأحكام القوانين المعمول بها في جمهورية مصر العربية، وتختصّ محاكم القاهرة الكبرى وحدها بكافة درجاتها بالنظر في أي نزاع قد ينشأ بشأن تطبيق أو تنفيذ أو تفسير هذا العقد.</p>`),
       clause(7, '', `<p>حُرِّر هذا العقد من نسختين أصليتين بيد كل طرف نسخة للعمل بها عند الحاجة.</p>`),
@@ -205,10 +241,8 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
   const clauses = [
     clause(0, '', `<p>يُعتبر التمهيد السابق وأيٌّ من ملاحق هذا العقد جزءًا لا يتجزأ من هذا العقد ومتممًا له ولأحكامه، ولا يُفسَّر بدونه.</p>`),
     clause(1, '', `
-      <p>منح الطرف الأول الطرفَ الثاني <strong>${grantNature}</strong> (${grantLabel}) في <strong>${territory}</strong> في استغلال والترخيص باستغلال المصنفات الفنية المذكورة في ملاحق هذا العقد، وكلماتها وألحانها والمقاطع الخاصة بها والتصوير العائد لها وصور المؤدّين لها، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢ بشأن حماية حقوق الملكية الفكرية، وكافة وسائل وطرق الاستغلال المالي والتوزيع الرقمي المتاحة حاليًا أو التي قد تظهر مستقبلًا، أيًّا كان نوع التسجيل أو التوزيع لهذه المصنفات، وسواء كان هذا التسجيل صوتيًا أو صوتيًا مرئيًا، ومنها على سبيل المثال لا الحصر: أجهزة الحاسب الآلي، وشبكات المعلومات الدولية (الإنترنت)، والمتاجر والمنصات والتطبيقات الإلكترونية مثل: YouTube و YouTube Music و Facebook و Instagram و TikTok و Anghami، وكافة المتاجر والمنصات الإلكترونية الافتراضية العالمية وكافة أنواع التطبيقات الإلكترونية.</p>
-      <p>كما يشمل الاستغلال — من خلال وسائل النقل والدوائر الإذاعية المغلقة والقنوات الفضائية والعرض والترخيص للطائرات والبواخر والحاملات والإذاعات بأنواعها — النشرَ وإعادة النشر والمزامنة والنسخ والبث الإذاعي وإعادة البث والأداء العلني والتوصيل العلني والطبع الميكانيكي والتوزيع وإعادة التوزيع، وللطرف الثاني الحق في استغلال اسم وصورة المؤدّين، وله الحق الاستئثاري في الترخيص أو المنع لأي استغلال لهذه المصنفات بأي وجه من الوجوه طوال مدة سريان العقد.</p>
-      <p><strong>صور الاستغلال الممنوحة (طبقًا للمادة ١٤٩):</strong></p>
-      <ul class="lw-coverage">${coverageList}</ul>`),
+      <p>منح الطرف الأول الطرفَ الثاني <strong>${grantNature}</strong> (${grantLabel}) في <strong>${territory}</strong> في استغلال والترخيص باستغلال المصنفات الفنية المذكورة في ملاحق هذا العقد، وكلماتها وألحانها والمقاطع الخاصة بها والتصوير العائد لها وصور المؤدّين لها، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢ بشأن حماية حقوق الملكية الفكرية، وكافة وسائل وطرق الاستغلال المالي والتوزيع الرقمي المتاحة حاليًا أو التي قد تظهر مستقبلًا، أيًّا كان نوع التسجيل أو التوزيع لهذه المصنفات، وسواء كان هذا التسجيل صوتيًا أو صوتيًا مرئيًا، ومنها على سبيل المثال لا الحصر: ${coverageBlock}.</p>
+      <p>ويشمل الاستغلال — بما لا يخالف نطاق التغطية المذكور أعلاه — النشرَ وإعادة النشر والمزامنة والنسخ والبث الإذاعي وإعادة البث والأداء العلني والتوصيل العلني والطبع الميكانيكي والتوزيع وإعادة التوزيع، وللطرف الثاني الحق في استغلال اسم وصورة المؤدّين، وله الحق الاستئثاري في الترخيص أو المنع لأي استغلال لهذه المصنفات بأي وجه من الوجوه طوال مدة سريان العقد.</p>`),
     clause(2, '', `<p>مقابل الحقوق الممنوحة من الطرف الأول للطرف الثاني في البند السابق، يقوم الطرف الثاني بإعطاء الطرف الأول نسبة تعادل <strong>${pct}٪</strong> من صافي الدخل بعد خصم حصة شركات تقديم الخدمات وأي مصاريف حكومية وغيرها — إن وُجدت — من العائدات النقدية المحققة والمحصَّلة من تقديم خدمات العقد، على أن تتم المحاسبة بصفة <strong>${escapeHtml(freq)}</strong>، ${payoutCondition}. ويتم احتساب حصة الطرف الأول بناءً على التقارير الواردة من شركات تقديم خدمات التوزيع، ويحق للطرف الأول مراجعة الحسابات والإيرادات خلال أيام العمل الرسمية للطرف الثاني — شرط الإخطار المسبق بثلاثين يومًا — مرةً واحدةً سنويًا.</p>`),
     clause(3, '', `<p>من المتفق عليه أن كل طرف مسؤول عن الضرائب التي تستحق عليه نتيجة تنفيذ هذا العقد حاليًا أو مستقبلًا.</p>`),
     clause(4, '', `<p>يقر الطرف الأول بأنه يمتلك كافة الحقوق اللازمة لاستغلال كافة المصنفات الممنوح حقوق استغلالها للطرف الثاني بموجب هذا العقد، وبأنه يملك الحق في ترخيص تلك الحقوق للطرف الثاني، وبكامل مسؤوليته أمام أي طرف ثالث قد يدّعي أي حقوق على تلك المصنفات بما فيهم المؤلفون والملحنون والمؤدّون، بحيث لا يكون الطرف الثاني مسؤولًا عن أية قضايا أو منازعات تُقام على الطرف الأول لأسباب تتعلق بمنحه للطرف الثاني الحقوقَ الواردة بهذا العقد، ويتحمل الطرف الأول المسؤولية كاملةً في كل قضايا أو منازعات تتعلق بمضمون أو محتوى أو ملكية تلك المصنفات.</p>`),
@@ -218,7 +252,7 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
       <p>تتم الإخطارات وتقارير الحسابات والإنذارات والإعلانات الرسمية عن طريق التسليم باليد أو بموجب إنذار على يد محضر على العنوان المذكور بصدر هذا العقد، أو عبر البريد الإلكتروني الذي يُعدّ وسيلة قانونية ملزمة للإخطار ومنتجة لجميع آثاره القانونية.</p>
       <p>(١) البريد الإلكتروني الرسمي للطرف الأول: <strong>${email}</strong></p>
       <p>(٢) البريد الإلكتروني الرسمي للطرف الثاني: <strong>${escapeHtml(COMPANY.email)}</strong></p>
-      <p>ويلتزم كل طرف بإخطار الآخر كتابةً بأي تغيير في بيانات الاتصال خلال مدة لا تتجاوز سبعة (٧) أيام عمل من تاريخ التغيير، وإلا ظلت الإخطارات على البيانات المبينة أعلاه منتجة لآثارها القانونية.</p>`),
+      <p>ويُقرّ كلا الطرفين بأن البريد الإلكتروني الرسمي الخاص بكلٍّ منهما سيظل تحت سيطرته الكاملة وحيازته ومسؤوليته الشخصية طوال مدة سريان هذا العقد. ويلتزم كل طرف بإخطار الآخر كتابةً بأي تغيير في بيانات الاتصال خلال مدة لا تتجاوز سبعة (٧) أيام عمل من تاريخ التغيير، وإلا ظلت الإخطارات على البيانات المبينة أعلاه منتجة لآثارها القانونية.</p>`),
     // System-mandated moral-rights protection (Egyptian Law 82/2002, Art. 143).
     clause(8, 'الحقوق الأدبية', `<p style="font-weight:700">${MORAL_RIGHTS_NOTE.ar}</p>`),
     clause(9, '', `<p>يخضع هذا العقد لأحكام القوانين المعمول بها في جمهورية مصر العربية، ويكون الاختصاص القضائي منعقدًا حصريًا لمحاكم جمهورية مصر العربية بكافة درجاتها وأنواعها دون غيرها، للفصل في أي نزاع ينشأ بشأن تطبيق أو تنفيذ أو تفسير هذا العقد.</p>`),

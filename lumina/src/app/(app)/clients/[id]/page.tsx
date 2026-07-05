@@ -8,6 +8,7 @@ import { CREDIT_ROLE_AR, RELEASE_TYPE_AR } from '@/lib/labels'
 import { FadeIn } from '@/components/motion'
 import { Breadcrumb, buttonClasses, IconLock, IconPlus } from '@/components/ui'
 import { ClientHub, type ClientSearchItem } from './ClientHub'
+import { DeleteClientButton } from './DeleteClientButton'
 import { ContractsTab } from './_tabs/ContractsTab'
 import { ReleasesTab } from './_tabs/ReleasesTab'
 import { FoldersTab } from './_tabs/FoldersTab'
@@ -191,11 +192,14 @@ export default async function ClientDetailPage({
               {tree.address && <span>{tree.address}</span>}
             </div>
           </div>
-          {canCreateContract && (
-            <Link href={`/clients/${id}/contracts/new`} className={buttonClasses('primary')}>
-              <IconPlus className="h-4 w-4" /> إضافة عقد
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {canCreateContract && (
+              <Link href={`/clients/${id}/contracts/new`} className={buttonClasses('primary')}>
+                <IconPlus className="h-4 w-4" /> إضافة عقد
+              </Link>
+            )}
+            {role === 'ADMIN' && <DeleteClientButton clientId={id} />}
+          </div>
         </header>
       </FadeIn>
 

@@ -21,19 +21,19 @@ const SETTLEMENT_OPTIONS = [
 interface Props {
   clientId: string
   grantTypes: Record<string, { ar: string; en: string }>
-  coverage: Record<string, { ar: string; en: string }>
+  coverageModes: Record<string, { ar: string; en: string }>
 }
 
 const initialState: AddContractState = { error: null }
 
-export default function NewContractForm({ clientId, grantTypes, coverage }: Props) {
+export default function NewContractForm({ clientId, grantTypes, coverageModes }: Props) {
   const [state, formAction, pending] = useActionState(addContract, initialState)
   const router = useRouter()
   const { toast } = useToast()
   const handled = useRef<AddContractState | null>(null)
 
-  // A sale & assignment (تنازل كامل) is a one-time buyout: show the amount field
-  // and hide the licensing/management fields (term, %, settlement, notice).
+  // A SALE (بيع وتنازل) is a one-time buyout: show the amount + works-Excel
+  // fields and hide the licensing/management fields (term, %, settlement, notice).
   const [grantType, setGrantType] = useState('DISTRIBUTION')
   const isSale = grantType === 'SALE'
 
@@ -46,7 +46,8 @@ export default function NewContractForm({ clientId, grantTypes, coverage }: Prop
   }, [state, toast, router, clientId])
 
   return (
-    <form action={formAction} className="space-y-6">
+    // encType is required so the file (works Excel/CSV) actually travels with the FormData
+    <form action={formAction} encType="multipart/form-data" className="space-y-6">
       <input type="hidden" name="clientId" value={clientId} />
 
       <Field label="نوع المنح" htmlFor="grantType" required>
@@ -126,25 +127,62 @@ export default function NewContractForm({ clientId, grantTypes, coverage }: Prop
         <Input id="signedDate" name="signedDate" type="date" />
       </Field>
 
+      {/* Coverage mode (radio group) — controls which paragraph the granting clause renders. */}
       <fieldset className="space-y-2">
         <legend className="block text-sm font-medium text-foreground">
-          صور الاستغلال <span className="text-gold-400">*</span>
-          <span className="ms-1 text-xs font-normal text-muted">
-            (يجب اختيار واحدة على الأقل — المادة 149)
-          </span>
+          نطاق التغطية <span className="text-gold-400">*</span>
         </legend>
-        <div className="grid grid-cols-2 gap-2 rounded-lg border border-line bg-ink-soft p-3">
-          {Object.entries(coverage).map(([key, val]) => (
+        <div className="grid gap-2 rounded-lg border border-line bg-ink-soft p-3">
+          {Object.entries(coverageModes).map(([key, val], i) => (
             <label
               key={key}
-              className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm transition hover:bg-white/5"
+              className="flex cursor-pointer items-center gap-3 rounded-lg p-2 text-sm transition hover:bg-white/5"
             >
-              <input type="checkbox" name="coverage" value={key} className="h-4 w-4 rounded accent-gold-400" />
+              <input
+                type="radio"
+                name="coverageMode"
+                value={key}
+                defaultChecked={i === 0}
+                required
+                className="h-4 w-4 accent-gold-400"
+              />
               <span className="text-foreground">{val.ar}</span>
             </label>
           ))}
         </div>
       </fieldset>
+
+      {/* Free-text exclusions — appended to the granting clause as «باستثناء …». */}
+      <Field
+        label="استثناءات من التغطية"
+        htmlFor="coverageExclusions"
+        hint='افصل بين البنود بفواصل، مثل: TikTok، Spotify. تظهر في العقد كـ «باستثناء: …».'
+      >
+        <Input
+          id="coverageExclusions"
+          name="coverageExclusions"
+          type="text"
+          placeholder="TikTok، Spotify"
+          autoComplete="off"
+        />
+      </Field>
+
+      {/* Excel/CSV upload for the SALE consideration table (Art.3 works list). */}
+      {isSale && (
+        <Field
+          label="قائمة المصنفات المُشتراة (Excel أو CSV)"
+          htmlFor="worksFile"
+          hint="عمودان: (1) اسم المؤدّي، (2) اسم المصنّف. يتم إنشاء ملحق تلقائيًا يحتوي على هذه المصنفات."
+        >
+          <input
+            id="worksFile"
+            name="worksFile"
+            type="file"
+            accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+            className="block w-full rounded-lg border border-line bg-ink-soft px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-gold-400 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gold-300"
+          />
+        </Field>
+      )}
 
       {state.error && (
         <p role="alert" className="rounded-lg border border-danger/20 bg-danger/10 px-4 py-2.5 text-sm text-danger">

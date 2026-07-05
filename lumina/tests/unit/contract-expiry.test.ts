@@ -42,7 +42,7 @@ async function makeExpiringContract(daysLeft: number) {
       grantType: 'DISTRIBUTION',
       territory: 'EGYPT',
       termMonths: 12,
-      coverage: ['mechanical'],
+      coverageMode: 'RBT_AND_DIGITAL',
       expiresAt,
     },
   })

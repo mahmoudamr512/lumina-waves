@@ -1,17 +1,87 @@
 import { renderContract, renderAnnex } from '@/templates/contracts'
 import { escapeHtml } from '@/templates/contracts/_layout'
 
-test('distribution contract includes correct Arabic grant + moral-rights note', () => {
+test('distribution contract renders correct Arabic grant + moral-rights + WORLDWIDE label', () => {
   const html = renderContract('DISTRIBUTION', {
     party1Name: 'أحمد علاء',
     party1NationalId: '28902102104713',
     territory: 'WORLDWIDE',
     termMonths: 36,
-    coverage: ['DIGITAL', 'SYNC'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
   expect(html).toContain('توزيع')
   expect(html).toContain('الحقوق الأدبية') // moral-rights note always present
-  expect(html).toContain('المزامنة') // coverage rendered in Arabic
+  // The Worldwide label now reads «جمهورية مصر العربية وجميع أنحاء العالم».
+  expect(html).toContain('جمهورية مصر العربية وجميع أنحاء العالم')
+})
+
+test('EGYPT territory renders the correct Arabic label (regression: previously showed raw enum)', () => {
+  const html = renderContract('SALE', {
+    party1Name: 'محمد علي',
+    party1NationalId: '29001011234567',
+    territory: 'EGYPT',
+    termMonths: 0,
+    coverageMode: 'DIGITAL_ONLY',
+  })
+  expect(html).toContain('جمهورية مصر العربية')
+  // Must not fall back to the raw enum key.
+  expect(html).not.toMatch(/>\s*EGYPT\s*</)
+})
+
+test('RBT_ONLY mode omits the digital-platform paragraph', () => {
+  const html = renderContract('SALE', {
+    party1Name: 'ن',
+    party1NationalId: '12345678901234',
+    territory: 'EGYPT',
+    termMonths: 0,
+    coverageMode: 'RBT_ONLY',
+  })
+  // fixParens wraps parenthetical text in U+2066…U+2069 LTR isolates, so assert
+  // on the parts that survive the transform rather than the literal parenthesis.
+  expect(html).toContain('نغمة الانتظار')
+  expect(html).toContain('الكول تون')
+  expect(html).not.toContain('YouTube')
+  expect(html).not.toContain('TikTok')
+})
+
+test('DIGITAL_ONLY mode includes the new streaming platforms (IG/TikTok/Anghami/Spotify)', () => {
+  const html = renderContract('DISTRIBUTION', {
+    party1Name: 'ن',
+    party1NationalId: '12345678901234',
+    territory: 'WORLDWIDE',
+    termMonths: 36,
+    coverageMode: 'DIGITAL_ONLY',
+  })
+  for (const p of ['YouTube', 'YouTube Music', 'Facebook', 'Instagram', 'TikTok', 'Anghami', 'Spotify']) {
+    expect(html).toContain(p)
+  }
+  expect(html).not.toContain('نغمة الانتظار (RBT')
+})
+
+test('future-tech clause and email-control undertaking are always present', () => {
+  const html = renderContract('SALE', {
+    party1Name: 'ن',
+    party1NationalId: '12345678901234',
+    territory: 'EGYPT',
+    termMonths: 0,
+    coverageMode: 'RBT_AND_DIGITAL',
+  })
+  expect(html).toContain('وما يستحدث منها مستقبلًا بأي مسمى أو صورة كانت')
+  expect(html).toContain('سيظل تحت سيطرته الكاملة')
+})
+
+test('coverage exclusions render as «باستثناء: …» in the granting clause', () => {
+  const html = renderContract('DISTRIBUTION', {
+    party1Name: 'ن',
+    party1NationalId: '12345678901234',
+    territory: 'WORLDWIDE',
+    termMonths: 36,
+    coverageMode: 'RBT_AND_DIGITAL',
+    coverageExclusions: ['TikTok', 'Spotify'],
+  })
+  expect(html).toContain('باستثناء:')
+  expect(html).toContain('TikTok')
+  expect(html).toContain('Spotify')
 })
 
 const ANNEX_BASE = {
@@ -62,7 +132,7 @@ test('renderContract escapes malicious party1Name — raw tags must not appear',
     party1NationalId: '12345678901234',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['DIGITAL'],
+    coverageMode: 'DIGITAL_ONLY',
   })
   expect(html).not.toContain('<script>')
   expect(html).not.toContain('</script>')
@@ -76,7 +146,7 @@ test('renderContract escapes malicious party1NationalId', () => {
     party1NationalId: '"><img src=x onerror=alert(1)>',
     territory: 'WORLDWIDE',
     termMonths: 24,
-    coverage: ['DIGITAL'],
+    coverageMode: 'DIGITAL_ONLY',
   })
   expect(html).not.toContain('<img')
   expect(html).toContain('&quot;&gt;&lt;img')
@@ -88,10 +158,23 @@ test('renderContract escapes an unknown territory fallback value', () => {
     party1NationalId: '29901010100001',
     territory: '<UNKNOWN>',
     termMonths: 6,
-    coverage: ['DIGITAL'],
+    coverageMode: 'DIGITAL_ONLY',
   })
   expect(html).not.toContain('<UNKNOWN>')
   expect(html).toContain('&lt;UNKNOWN&gt;')
+})
+
+test('renderContract escapes malicious coverage exclusions', () => {
+  const html = renderContract('SALE', {
+    party1Name: 'ن',
+    party1NationalId: '12345678901234',
+    territory: 'EGYPT',
+    termMonths: 0,
+    coverageMode: 'RBT_AND_DIGITAL',
+    coverageExclusions: ['<script>alert(1)</script>'],
+  })
+  expect(html).not.toContain('<script>alert')
+  expect(html).toContain('&lt;script&gt;')
 })
 
 test('renderAnnex escapes malicious works-table fields — raw tags must not appear', () => {
