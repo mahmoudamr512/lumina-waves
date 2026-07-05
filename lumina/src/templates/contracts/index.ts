@@ -10,34 +10,63 @@ import { egpInWords } from '@/lib/tafqeet'
 // «باستثناء …» so specific platforms (e.g. «TikTok، Spotify») are surgically
 // removed from the granted scope.
 
-/** Phone-side services (cellular / IVR / SMS / VAS / RBT / Call-Tone / Download-Track-Full). */
-const COVERAGE_RBT_AR =
-  'شبكات الاتصالات والهاتف الأرضي والمحمول وخدمات التفاعل الصوتي عبر الهاتف وخدمات القيمة المضافة والرسائل القصيرة، بحيث يتمكّن مستخدم الخدمة من استغلال المصنفات بكافة أشكالها للاستماع والمشاهدة وكرنّات وتحميل الملف الصوتي كاملًا (Full Track Download)، وخدمة نغمة الانتظار (RBT / خدمة الكول تون)'
-
-/** Internet + streaming platforms + broadcast/radio/TV/satellite/transportation. */
-const COVERAGE_DIGITAL_AR =
-  'شبكة المعلومات الدولية (الإنترنت) والمتاجر الافتراضية العالمية والمنصات مثل: YouTube و YouTube Music و Facebook و Instagram و TikTok و Anghami و Spotify، وكذا من خلال وسائل النقل والدوائر الإذاعية المغلقة والقنوات الفضائية والإذاعات بأنواعها'
-
 /**
- * Legal catch-all for future-emerging platforms/services under any name or
- * form. Appended after the enumerated platforms so the grant covers whatever
- * new medium emerges after signing.
+ * The RBT (phone-side) items and the DIGITAL (internet + broadcast) items are
+ * stored as discrete strings so the exclusions clause can surgically REMOVE any
+ * item the caller lists in `exclusions` from the paragraph — otherwise «باستثناء
+ * Spotify» would appear alongside Spotify still being in the platform list.
  */
+const COVERAGE_RBT_ITEMS: readonly string[] = [
+  'شبكات الاتصالات والهاتف الأرضي والمحمول',
+  'خدمات التفاعل الصوتي عبر الهاتف',
+  'خدمات القيمة المضافة',
+  'الرسائل القصيرة',
+  'الاستماع والمشاهدة',
+  'كرنّات',
+  'تحميل الملف الصوتي كاملًا (Full Track Download)',
+  'خدمة نغمة الانتظار (RBT / خدمة الكول تون)',
+]
+
+const COVERAGE_DIGITAL_ITEMS: readonly string[] = [
+  'شبكة المعلومات الدولية (الإنترنت)',
+  'المتاجر الافتراضية العالمية',
+  'YouTube',
+  'YouTube Music',
+  'Facebook',
+  'Instagram',
+  'TikTok',
+  'Anghami',
+  'Spotify',
+  'وسائل النقل والدوائر الإذاعية المغلقة',
+  'القنوات الفضائية',
+  'الإذاعات بأنواعها',
+]
+
+/** Legal catch-all appended after the enumerated platforms. */
 const FUTURE_TECH_AR = 'وما يستحدث منها مستقبلًا بأي مسمى أو صورة كانت'
 
-/** Compose the mode-aware coverage paragraph (with exclusions if any). */
-function coverageParagraph(mode: CoverageMode, exclusions: readonly string[] = []): string {
+/** Case-insensitive substring test that also handles Arabic normalization loosely. */
+function matchesExclusion(item: string, exclusion: string): boolean {
+  const norm = (s: string) => s.trim().toLowerCase()
+  const i = norm(item)
+  const e = norm(exclusion)
+  return e.length > 1 && (i.includes(e) || e.includes(i))
+}
+
+/** Compose the mode-aware coverage paragraph and surgically drop excluded items. */
+export function coverageParagraph(mode: CoverageMode, exclusions: readonly string[] = []): string {
+  const trimmedExclusions = exclusions.map((e) => e.trim()).filter(Boolean)
+  const filter = (items: readonly string[]) =>
+    items.filter((it) => !trimmedExclusions.some((ex) => matchesExclusion(it, ex)))
+
   const parts: string[] = []
-  if (mode === 'RBT_ONLY' || mode === 'RBT_AND_DIGITAL') parts.push(COVERAGE_RBT_AR)
-  if (mode === 'DIGITAL_ONLY' || mode === 'RBT_AND_DIGITAL') parts.push(COVERAGE_DIGITAL_AR)
-  const platformBlock = parts.join('، و')
-  const safeExclusions = exclusions
-    .map((e) => e.trim())
-    .filter(Boolean)
-    .map(escapeHtml)
-  const exclusionsClause = safeExclusions.length
-    ? `، باستثناء: ${safeExclusions.join('، و')}`
-    : ''
+  if (mode === 'RBT_ONLY' || mode === 'RBT_AND_DIGITAL') parts.push(filter(COVERAGE_RBT_ITEMS).join('، '))
+  if (mode === 'DIGITAL_ONLY' || mode === 'RBT_AND_DIGITAL') parts.push(filter(COVERAGE_DIGITAL_ITEMS).join('، '))
+  const platformBlock = parts.filter(Boolean).join('، و')
+
+  const safeExclusions = trimmedExclusions.map(escapeHtml)
+  const exclusionsClause = safeExclusions.length ? `، باستثناء: ${safeExclusions.join('، و')}` : ''
+
   return `${platformBlock}، ${FUTURE_TECH_AR}${exclusionsClause}`
 }
 
@@ -156,7 +185,12 @@ function clause(index: number, title: string, body: string): string {
  * Adds two system-mandated protections beyond the base template: the explicit
  * Article-149 coverage list and the permanent moral-rights clause.
  */
-export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractData): string {
+export function renderContract(
+  grantType: keyof typeof GRANT_TYPES,
+  d: ContractData,
+  opts: { withSeal?: boolean } = {},
+): string {
+  const { withSeal = true } = opts
   // Caller-supplied values are escaped; the Arabic legal boilerplate and the
   // constants from @/lib/rights are our own trusted data.
   const name = escapeHtml(d.party1Name)
@@ -224,7 +258,7 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
       clause(7, '', `<p>حُرِّر هذا العقد من نسختين أصليتين بيد كل طرف نسخة للعمل بها عند الحاجة.</p>`),
     ].join('')
 
-    const saleBody = `${fixParens(`${intro}${saleTamheed}${saleClauses}`)}${signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo })}`
+    const saleBody = `${fixParens(`${intro}${saleTamheed}${saleClauses}`)}${signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo, withSeal })}`
     return layout({
       titleAr: 'عقد بيع وتنازل عن مصنفات فنية',
       bodyHtml: saleBody,
@@ -260,7 +294,7 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
   ].join('')
 
   // fixParens only the text body; the signature block carries SVGs (url(...)).
-  const body = `${fixParens(`${intro}${tamheed}${clauses}`)}${signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo })}`
+  const body = `${fixParens(`${intro}${tamheed}${clauses}`)}${signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo, withSeal })}`
   return layout({
     titleAr: 'عقد إدارة واستغلال مصنفات فنية',
     bodyHtml: body,
@@ -271,7 +305,36 @@ export function renderContract(grantType: keyof typeof GRANT_TYPES, d: ContractD
 }
 
 /** Full annex (ملحق) listing newly-covered works under an existing master contract. */
-export function renderAnnex(d: AnnexData): string {
+/**
+ * The tafweed («تفويض واقرار») is a standalone authorization/attestation the
+ * artist signs alongside each DISTRIBUTION annex — it delegates exclusive
+ * exploitation rights over the annex's works to Lumina Waves and asserts full
+ * ownership of those rights. It shares the annex's data (party, works, master
+ * contract date) but adds a mode-aware coverage sentence.
+ */
+export type TafweedData = AnnexData & {
+  /** Which coverage-paragraph block to include in the tafweed clause. */
+  coverageMode: CoverageMode
+  /** Free-text items to exclude, rendered as «باستثناء …». */
+  coverageExclusions?: string[]
+}
+
+/** Shared works-table markup for both the annex and the tafweed. */
+function worksTableHtml(works: Work[]): string {
+  const rows = works
+    .map(
+      (w) =>
+        `<tr><td>${escapeHtml(w.titleAr)}</td><td>${escapeHtml(w.singer)}</td><td>${escapeHtml(w.lyricist)}</td><td>${escapeHtml(w.composer)}</td><td>${escapeHtml(w.arranger)}</td></tr>`,
+    )
+    .join('')
+  return `<table>
+    <thead><tr><th>الأغنية</th><th>المطرب</th><th>المؤلف</th><th>الملحن</th><th>الموزع</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`
+}
+
+/** The annex body HTML, factored out so `renderAnnexAndTafweed` can concatenate it. */
+function annexBodyHtml(d: AnnexData): string {
   const name = escapeHtml(d.party1Name)
   const stage = d.party1StageName ? ` وشهرته (${escapeHtml(d.party1StageName)})` : ''
   const nid = escapeHtml(d.party1NationalId)
@@ -279,35 +342,84 @@ export function renderAnnex(d: AnnexData): string {
   const master = escapeHtml(d.masterDateAr)
   const annexDate = escapeHtml(d.annexDateAr)
 
-  const rows = d.works
-    .map(
-      (w) =>
-        `<tr><td>${escapeHtml(w.titleAr)}</td><td>${escapeHtml(w.singer)}</td><td>${escapeHtml(w.lyricist)}</td><td>${escapeHtml(w.composer)}</td><td>${escapeHtml(w.arranger)}</td></tr>`,
-    )
-    .join('')
-
   const intro = `
     <p class="lw-intro">أنه في يوم <strong>${annexDate}</strong> تحرر هذا الملحق للعقد الموقع بتاريخ <strong>${master}</strong> بين كل من:</p>
     <p><strong>أولًا:</strong> السيد/ ${name}${stage}، المقيم بالعنوان: ${addr}، ويحمل رقم قومي ${nid}، بصفته مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية. <strong>(ويشار إليه بالطرف الأول)</strong></p>
     <p><strong>ثانيًا:</strong> السادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)}. <strong>(ويشار إليها بالطرف الثاني)</strong></p>`
 
-  const body = `
+  return `
     ${intro}
     <section class="lw-clause"><h2 class="lw-clause-title">تمهيد</h2><div class="lw-clause-body"><p>حيث إنه حُرِّر عقد استغلال مصنفات فنية بين الطرفين بتاريخ <strong>${master}</strong> (ويشار إليه بالعقد).</p></div></section>
     ${clause(0, '', `<p>هذا الملحق جزءٌ لا يتجزأ من العقد الأصلي الموقع بين الطرفين بتاريخ <strong>${master}</strong> ومتمم له ولا يُفسَّر بدونه.</p>`)}
     ${clause(1, '', `
       <p>منح الطرف الأول — بموجب هذا الملحق — الطرفَ الثاني الحق الحصري في استغلال والترخيص باستغلال كافة المصنفات الفنية التي سيتم إصدارها طوال مدة سريان العقد، وكذا المصنفات المذكورة أدناه وكلماتها وألحانها والمقاطع الغنائية الخاصة بها والتصوير العائد لها وصور المطربين المؤدّين لها، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢، وبكافة وسائل الاستغلال المالي والتوزيع الرقمي المتاحة حاليًا أو مستقبلًا. وبياناتها كالتالي:</p>
-      <table>
-        <thead><tr><th>الأغنية</th><th>المطرب</th><th>المؤلف</th><th>الملحن</th><th>الموزع</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`)}
+      ${worksTableHtml(d.works)}`)}
     ${clause(2, '', `<p>يقر الطرف الأول بأنه يمتلك كافة الحقوق اللازمة لاستغلال المصنفات الممنوح حقوق استغلالها للطرف الثاني بموجب هذا الملحق، وبكامل مسؤوليته أمام أي طرف ثالث قد يدّعي أي حقوق على تلك المصنفات بما فيهم المؤلفون والملحنون، ويتحمل وحده المسؤولية الكاملة عن أي قضايا أو منازعات تتعلق بمضمون أو محتوى أو ملكية تلك المصنفات.</p>`)}
     ${clause(3, '', `<p>تظل باقي بنود العقد الأصلي سارية.</p>`)}
     ${clause(4, '', `<p>حُرِّر هذا الملحق من نسختين متطابقتين بيد كل طرف نسخة للعمل بموجبها عند الحاجة.</p>`)}`
+}
 
+/** Tafweed body HTML — standalone authorization the artist signs. */
+function tafweedBodyHtml(d: TafweedData): string {
+  const name = escapeHtml(d.party1Name)
+  const stage = d.party1StageName ? ` وشهرته (${escapeHtml(d.party1StageName)})` : ''
+  const nid = escapeHtml(d.party1NationalId)
+  const addr = escapeHtml(d.party1Address ?? '—')
+  const master = escapeHtml(d.masterDateAr)
+  const dateAr = escapeHtml(d.annexDateAr)
+  const coverage = coverageParagraph(d.coverageMode, d.coverageExclusions)
+
+  return `
+    <h2 class="lw-clause-title" style="text-align:center;margin:1.2em 0 1em">تفويض وإقرار</h2>
+    <p>أُفوّض أنا / ${name}${stage} - المقيم في: ${addr}، وأحمل رقم قومي ${nid}، بصفتي مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية.</p>
+    <p>السادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)} — حصريًا في استغلال والترخيص باستغلال الأغاني المذكورة أدناه وكلماتها وألحانها وكذا المقاطع الغنائية الخاصة بها وصور المؤدّي لها للاستغلال في جمهورية مصر العربية وجميع أنحاء العالم، ومنها على سبيل المثال لا الحصر: ${coverage}. ويقوم الطرف الثاني أو من يرخّص له بذلك باستغلالها عبر تلك الشبكات على اختلاف أنواعها بشكل حصري.</p>
+    <p>وأُقرّ بأنني أملك قانونًا كافة حقوق استغلال تلك الأغاني ماليًا وأنه ليس للغير عليها أي حق من الحقوق التي حماها قانون حماية حقوق الملكية الفكرية. كما أُقرّ بأنني مسؤولٌ وحدي تجاه الغير عن أي حقوق للغير تتعلق بالأغاني المذكورة أدناه. كما ألتزم بتسليم ${escapeHtml(COMPANY.nameAr)} أي أوراق ومستندات دالة على هذه الحقوق عند طلبها وذلك في خلال ثلاثة أيام عمل من طلبها، وذلك طبقًا للعقد الموقع بيني وبين ${escapeHtml(COMPANY.nameAr)} بتاريخ <strong>${master}</strong>.</p>
+    ${worksTableHtml(d.works)}
+    <p style="font-weight:700;margin-top:1em">وهذا إقرار وتفويض منّي بذلك.</p>
+    <p style="margin-top:1em">تحريرًا في: <strong>${dateAr}</strong>.</p>
+    <div style="margin-top:2em">
+      <p style="font-weight:700">توقيع المفوِّض</p>
+      <p>${name}${stage}</p>
+    </div>`
+}
+
+export function renderAnnex(d: AnnexData, opts: { withSeal?: boolean } = {}): string {
+  const { withSeal = true } = opts
   return layout({
     titleAr: fixParens(`ملحق رقم (${d.number}) لعقد استغلال مصنفات فنية`),
-    bodyHtml: fixParens(body) + signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo }),
+    bodyHtml:
+      fixParens(annexBodyHtml(d)) +
+      signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo, withSeal }),
+    letterhead: letterheadHtml(),
+    footer: footerHtml(),
+    extraCss: BRANDING_CSS,
+  })
+}
+
+export function renderTafweed(d: TafweedData, _opts: { withSeal?: boolean } = {}): string {
+  // The tafweed carries no signature block for Party 2 (it's an artist-only
+  // attestation), so the seal toggle is a no-op here but the parameter is
+  // accepted for API symmetry with renderAnnex/renderContract.
+  return layout({
+    titleAr: fixParens('تفويض وإقرار — استغلال مصنفات فنية'),
+    bodyHtml: fixParens(tafweedBodyHtml(d)),
+    letterhead: letterheadHtml(),
+    footer: footerHtml(),
+    extraCss: BRANDING_CSS,
+  })
+}
+
+/** Combined multi-page PDF: annex first, hard page break, then the tafweed. */
+export function renderAnnexAndTafweed(d: TafweedData, opts: { withSeal?: boolean } = {}): string {
+  const { withSeal = true } = opts
+  const annexBody =
+    fixParens(annexBodyHtml(d)) +
+    signatureBlockHtml({ party1Label: d.party1StageName ?? d.party1Name, regNo: d.regNo, withSeal })
+  const tafweedBody = fixParens(tafweedBodyHtml(d))
+  const combined = `${annexBody}<div style="page-break-before:always"></div>${tafweedBody}`
+  return layout({
+    titleAr: fixParens(`ملحق رقم (${d.number}) وتفويض`),
+    bodyHtml: combined,
     letterhead: letterheadHtml(),
     footer: footerHtml(),
     extraCss: BRANDING_CSS,
