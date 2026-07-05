@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { writeAudit } from '@/lib/audit'
 import { redactSensitive } from '@/lib/authz'
-import { validateGrant } from '@/lib/rights'
+import { validateGrant, type CoverageMode } from '@/lib/rights'
 import { queues } from '@/lib/queue'
 import { notifyRecordActivity } from '@/services/notifications'
 
@@ -12,7 +12,9 @@ export async function createContract(input: {
   territory: string
   /** Optional — null for SALE (perpetual buyout), required for DISTRIBUTION. */
   termMonths?: number | null
-  coverage: string[]
+  coverageMode: CoverageMode
+  /** Free-text platform/service names to exclude from the granted coverage. */
+  coverageExclusions?: string[]
   autoRenew?: boolean
   noticeDays?: number
   revenueShareBps?: number
@@ -21,7 +23,12 @@ export async function createContract(input: {
   signedDate?: Date
 }) {
   const u = await requireUser('create', 'MasterContract')
-  validateGrant({ grantType: input.grantType, territory: input.territory, coverage: input.coverage })
+  validateGrant({
+    grantType: input.grantType,
+    territory: input.territory,
+    coverageMode: input.coverageMode,
+    coverageExclusions: input.coverageExclusions,
+  })
   // A SALE (بيع وتنازل) is a perpetual buyout → no termMonths, no expiry.
   // A DISTRIBUTION (توزيع) is term-based → auto-derive expiry from signedDate + term.
   const expiresAt =
@@ -29,8 +36,11 @@ export async function createContract(input: {
       ? new Date(new Date(input.signedDate).setMonth(new Date(input.signedDate).getMonth() + input.termMonths))
       : null
   const termMonths = input.grantType === 'SALE' ? null : (input.termMonths ?? null)
+  const coverageExclusions = (input.coverageExclusions ?? [])
+    .map((s) => s.trim())
+    .filter(Boolean)
   const row = await db.masterContract.create({
-    data: { ...input, coverage: input.coverage, termMonths, expiresAt },
+    data: { ...input, coverageExclusions, termMonths, expiresAt },
   })
   await writeAudit({ actorId: u.id, action: 'CREATE', entity: 'MasterContract', entityId: row.id, after: row })
   // Best-effort Drive backup — outage must NOT fail the mutation
@@ -100,4 +110,24 @@ export async function listContracts() {
     const redactedClient = redactSensitive(u.role, 'Client', r.client)
     return { ...redactedContract, client: redactedClient }
   })
+}
+
+/** Move a contract to the trash (3-day recovery window). Admin-only in RBAC. */
+export async function softDeleteContract(id: string) {
+  const u = await requireUser('delete', 'MasterContract')
+  const before = await db.masterContract.findUnique({ where: { id } })
+  await db.$softDelete('MasterContract', id, new Date(Date.now() + 3 * 864e5))
+  await writeAudit({ actorId: u.id, action: 'DELETE', entity: 'MasterContract', entityId: id, before })
+  return { id }
+}
+
+/**
+ * Permanent delete — soft-delete first (auth + audit + best-effort notify via
+ * the soft path's side effects) then immediately set purgedAt so it bypasses
+ * the 3-day trash window. The row stays in DB so audit/comment FKs remain valid.
+ */
+export async function hardDeleteContract(id: string) {
+  const r = await softDeleteContract(id)
+  await db.masterContract.updateMany({ where: { id }, data: { purgedAt: new Date() } })
+  return r
 }

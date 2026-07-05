@@ -73,7 +73,7 @@ test('getClientTree returns nested tree for ADMIN', async () => {
     grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['DIGITAL'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
   const a = await createAnnex({ contractId: k.id, annexDate: new Date() })
   await createWork({ title: 'أغنية تجريبية', annexId: a.id, credits: [{ role: 'AUTHOR', name: 'محمد' }] })

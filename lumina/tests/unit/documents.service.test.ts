@@ -62,7 +62,7 @@ test('generateContractPdf creates a DRAFT document', async () => {
     grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['DIGITAL'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
 
   const doc = await generateContractPdf(k.id)
@@ -79,7 +79,7 @@ test('generateAnnexPdf creates a prefilled DRAFT attached to the annex', async (
     grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['DIGITAL'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
   const annex = await createAnnex({ contractId: k.id, annexDate: new Date() })
   await createWork({ title: 'أغنية الاختبار', annexId: annex.id, credits: [{ role: 'PERFORMER', name: 'مطرب' }] })
@@ -98,7 +98,7 @@ test('generateAnnexPdf creates a prefilled DRAFT attached to the annex', async (
 test('generateAnnexPdf is rejected for non-ADMIN/LEGAL roles', async () => {
   const c = await createClient({ legalName: 'Annex RBAC', nationalId: uid() })
   const k = await createContract({
-    clientId: c.id, grantType: 'DISTRIBUTION', territory: 'EGYPT', termMonths: 12, coverage: ['DIGITAL'],
+    clientId: c.id, grantType: 'DISTRIBUTION', territory: 'EGYPT', termMonths: 12, coverageMode: 'RBT_AND_DIGITAL',
   })
   const annex = await createAnnex({ contractId: k.id, annexDate: new Date() })
   mockRequireUser.mockResolvedValueOnce({ id: 'op', role: 'OPERATIONS' })
@@ -112,7 +112,7 @@ test('generateContractPdf writes an audit row', async () => {
     grantType: 'SALE',
     territory: 'WORLDWIDE',
     termMonths: 24,
-    coverage: ['DIGITAL', 'BROADCAST'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
 
   const doc = await generateContractPdf(k.id)
@@ -131,7 +131,7 @@ test('markExecuted flips document status to EXECUTED', async () => {
     grantType: 'DISTRIBUTION',
     territory: 'WORLDWIDE',
     termMonths: 6,
-    coverage: ['NAME_IMAGE'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
 
   const draft = await generateContractPdf(k.id)
@@ -150,7 +150,7 @@ test('markExecuted writes an audit row', async () => {
     grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['SYNC'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
 
   const draft = await generateContractPdf(k.id)
@@ -170,7 +170,7 @@ test('generateContractPdf excludes soft-deleted annexes/works from the rendered 
     grantType: 'SALE',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['DIGITAL'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
   const annex = await createAnnex({ contractId: k.id, annexDate: new Date() })
   await createWork({ title: 'Live Work', annexId: annex.id, credits: [] })
@@ -203,7 +203,7 @@ test('generateContractPdf rejects OPERATIONS role (not in sensitive allowlist)',
     grantType: 'DISTRIBUTION',
     territory: 'EGYPT',
     termMonths: 12,
-    coverage: ['DIGITAL'],
+    coverageMode: 'RBT_AND_DIGITAL',
   })
 
   // Now try to generate as OPERATIONS — must be rejected

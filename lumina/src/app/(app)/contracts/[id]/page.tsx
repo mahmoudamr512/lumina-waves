@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
 import { getContractDetail } from '@/services/contracts'
-import { GRANT_TYPES } from '@/lib/rights'
+import { GRANT_TYPES, COVERAGE_MODES } from '@/lib/rights'
 import { FadeIn } from '@/components/motion'
 import {
   Breadcrumb,
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui'
 import { TERRITORY_AR, CREDIT_ROLE_AR, WORK_STATUS_AR, DOC_STATUS_AR, termLabel, formatDateAr, daysFromNow } from '@/lib/labels'
 import AddAnnexButton from '@/app/(app)/clients/[id]/AddAnnexButton'
+import { DeleteContractButton } from './DeleteContractButton'
 import GenerateAnnexButton from '@/app/(app)/clients/[id]/GenerateAnnexButton'
 import AttachDocumentForm from '@/app/(app)/clients/[id]/AttachDocumentForm'
 import { ActivityPanel } from '@/components/activity/ActivityPanel'
@@ -119,6 +120,18 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                   </dd>
                 </div>
               )}
+              <div className="flex gap-1.5">
+                <dt className="text-muted">نطاق التغطية:</dt>
+                <dd className="text-foreground">
+                  {COVERAGE_MODES[contract.coverageMode as keyof typeof COVERAGE_MODES]?.ar ?? String(contract.coverageMode)}
+                </dd>
+              </div>
+              {Array.isArray(contract.coverageExclusions) && contract.coverageExclusions.length > 0 && (
+                <div className="flex gap-1.5">
+                  <dt className="text-muted">استثناءات:</dt>
+                  <dd className="text-foreground">{(contract.coverageExclusions as string[]).join('، و')}</dd>
+                </div>
+              )}
             </dl>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -128,6 +141,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
               </Link>
             )}
             {canAddAnnex && <AddAnnexButton contractId={id} clientId={clientId} />}
+            {role === 'ADMIN' && <DeleteContractButton contractId={id} />}
           </div>
         </header>
       </FadeIn>

@@ -153,3 +153,15 @@ export async function softDeleteClient(id: string) {
     console.warn('[softDeleteClient] creator notify failed (best-effort):', err)
   }
 }
+
+/**
+ * Permanent delete — soft-delete first (auth + audit + best-effort creator
+ * notify + Drive backup + admin mail) then immediately set purgedAt so it
+ * bypasses the 3-day trash window. Row stays in DB so audit/comment FKs
+ * remain valid; filtered out of every UI by the soft-delete extension.
+ */
+export async function hardDeleteClient(id: string) {
+  await softDeleteClient(id)
+  await db.client.updateMany({ where: { id }, data: { purgedAt: new Date() } })
+  return { id }
+}

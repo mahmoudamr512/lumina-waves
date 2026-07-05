@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { can } from '@/lib/authz'
 import { getContract } from '@/services/contracts'
-import { GRANT_TYPES, COVERAGE } from '@/lib/rights'
+import { GRANT_TYPES, COVERAGE_MODES } from '@/lib/rights'
 import { FadeIn } from '@/components/motion'
 import { Breadcrumb, Card, CardHeader, CardBody, buttonClasses } from '@/components/ui'
 import { TERRITORY_AR, termLabel } from '@/lib/labels'
@@ -35,7 +35,8 @@ export default async function GenerateContractPage({ params }: { params: Promise
   if (!contract) notFound()
 
   const grantLabel = GRANT_TYPES[contract.grantType as keyof typeof GRANT_TYPES]
-  const coverageList = (contract.coverage as string[]).map((k) => COVERAGE[k as keyof typeof COVERAGE])
+  const coverageModeLabel = COVERAGE_MODES[contract.coverageMode as keyof typeof COVERAGE_MODES]
+  const coverageExclusions = (contract.coverageExclusions ?? []) as string[]
 
   return (
     <section className="mx-auto max-w-xl space-y-8">
@@ -79,19 +80,16 @@ export default async function GenerateContractPage({ params }: { params: Promise
                   <dd className="text-foreground">{termLabel(contract.termMonths as number)}</dd>
                 </div>
               )}
-              <div className="flex flex-col gap-1">
-                <dt className="text-muted">صور الاستغلال</dt>
-                <dd>
-                  <ul className="space-y-0.5">
-                    {coverageList.map((c, i) => (
-                      <li key={i} className="flex items-center gap-1.5 text-sm text-foreground">
-                        <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-gold-400" />
-                        {c?.ar}
-                      </li>
-                    ))}
-                  </ul>
-                </dd>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted">نطاق التغطية</dt>
+                <dd className="text-foreground">{coverageModeLabel?.ar ?? String(contract.coverageMode)}</dd>
               </div>
+              {coverageExclusions.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <dt className="text-muted">الاستثناءات</dt>
+                  <dd className="text-foreground">باستثناء: {coverageExclusions.join('، و')}</dd>
+                </div>
+              )}
             </dl>
           </CardBody>
         </Card>

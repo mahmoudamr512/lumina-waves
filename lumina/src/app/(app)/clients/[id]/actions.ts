@@ -1,11 +1,44 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createAnnex } from '@/services/annexes'
 import { uploadDocument, generateAnnexPdf } from '@/services/documents'
 import { createRelease, addTrackToRelease } from '@/services/releases'
 import { createFolder } from '@/services/folders'
+import { softDeleteClient, hardDeleteClient } from '@/services/clients'
 import { AuthzError } from '@/lib/errors'
+
+export interface DeleteClientState {
+  error: string | null
+  ok?: boolean
+}
+
+/** Move the client to trash (3-day recovery window). Admin-only. */
+export async function removeClient(_prev: DeleteClientState, fd: FormData): Promise<DeleteClientState> {
+  const id = String(fd.get('id') ?? '')
+  try {
+    await softDeleteClient(id)
+  } catch (err) {
+    if (err instanceof AuthzError) return { error: 'ليس لديك صلاحية لحذف العميل.' }
+    return { error: 'تعذّر حذف العميل. يُرجى المحاولة مرة أخرى.' }
+  }
+  revalidatePath('/clients')
+  redirect('/clients')
+}
+
+/** Permanent delete — no 3-day recovery window. Admin-only. */
+export async function hardRemoveClient(_prev: DeleteClientState, fd: FormData): Promise<DeleteClientState> {
+  const id = String(fd.get('id') ?? '')
+  try {
+    await hardDeleteClient(id)
+  } catch (err) {
+    if (err instanceof AuthzError) return { error: 'ليس لديك صلاحية لحذف العميل.' }
+    return { error: 'تعذّر حذف العميل. يُرجى المحاولة مرة أخرى.' }
+  }
+  revalidatePath('/clients')
+  redirect('/clients')
+}
 
 export interface AnnexState {
   error: string | null

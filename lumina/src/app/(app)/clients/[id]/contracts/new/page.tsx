@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getClient } from '@/services/clients'
-import { GRANT_TYPES, COVERAGE } from '@/lib/rights'
+import { GRANT_TYPES, COVERAGE_MODES } from '@/lib/rights'
 import { FadeIn } from '@/components/motion'
 import { Breadcrumb } from '@/components/ui'
 import NewContractForm from './NewContractForm'
@@ -39,7 +39,7 @@ export default async function NewContractPage({ params }: { params: Promise<{ id
         </header>
       </FadeIn>
       <FadeIn delay={0.1}>
-        <NewContractForm clientId={id} grantTypes={GRANT_TYPES} coverage={COVERAGE} />
+        <NewContractForm clientId={id} grantTypes={GRANT_TYPES} coverageModes={COVERAGE_MODES} />
       </FadeIn>
     </section>
   )
