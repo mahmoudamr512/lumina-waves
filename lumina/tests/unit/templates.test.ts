@@ -36,7 +36,10 @@ test('RBT_ONLY mode omits the digital-platform paragraph', () => {
     termMonths: 0,
     coverageMode: 'RBT_ONLY',
   })
-  expect(html).toContain('نغمة الانتظار (RBT / خدمة الكول تون)')
+  // fixParens wraps parenthetical text in U+2066…U+2069 LTR isolates, so assert
+  // on the parts that survive the transform rather than the literal parenthesis.
+  expect(html).toContain('نغمة الانتظار')
+  expect(html).toContain('الكول تون')
   expect(html).not.toContain('YouTube')
   expect(html).not.toContain('TikTok')
 })
