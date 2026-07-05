@@ -62,7 +62,7 @@ export type AnnexData = {
 
 const TERRITORY_AR: Record<string, string> = {
   EGYPT: 'جمهورية مصر العربية',
-  WORLDWIDE: 'جميع أنحاء العالم',
+  WORLDWIDE: 'جمهورية مصر العربية وجميع أنحاء العالم',
 }
 
 // In an RTL paragraph, ASCII parentheses are bidi-mirrored and break around

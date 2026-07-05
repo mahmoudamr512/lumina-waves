@@ -4,7 +4,7 @@
 
 export const TERRITORY_AR: Record<string, string> = {
   EGYPT: 'جمهورية مصر العربية',
-  WORLDWIDE: 'جميع أنحاء العالم',
+  WORLDWIDE: 'جمهورية مصر العربية وجميع أنحاء العالم',
 }
 
 export const CREDIT_ROLE_AR: Record<string, string> = {
