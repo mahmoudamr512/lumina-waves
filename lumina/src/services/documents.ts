@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { AuthzError } from '@/lib/errors'
 import { writeAudit } from '@/lib/audit'
-import { renderContract, renderAnnex } from '@/templates/contracts'
+import { renderContract, renderAnnex, renderTafweed, renderAnnexAndTafweed } from '@/templates/contracts'
 import { renderPdf } from '@/lib/pdf'
 import { queues } from '@/lib/queue'
 import { notifyRecordActivity } from '@/services/notifications'
@@ -18,7 +18,7 @@ const STORAGE = process.env.STORAGE_DIR ?? './.storage'
 // entirely excluded. Fail-closed: any role not in this list is rejected.
 const SENSITIVE_DOC_ROLES: string[] = ['ADMIN', 'LEGAL']
 
-export async function generateContractPdf(contractId: string) {
+export async function generateContractPdf(contractId: string, opts: { withSeal?: boolean } = {}) {
   // Gate 1: caller must have `create` permission on Document (standard RBAC).
   const u = await requireUser('create', 'Document')
 
@@ -86,7 +86,7 @@ export async function generateContractPdf(contractId: string) {
     // as the EGP buyout amount) + the list of works being sold.
     buyoutAmountEgp: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
     works: saleWorks.length ? saleWorks : undefined,
-  })
+  }, { withSeal: opts.withSeal ?? true })
 
   const buf = await renderPdf(html)
 
@@ -134,7 +134,7 @@ export async function generateContractPdf(contractId: string) {
  * (embeds the National ID → ADMIN/LEGAL only). The draft is attached to the
  * annex and appears in its documents list, downloadable like any document.
  */
-export async function generateAnnexPdf(annexId: string) {
+export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boolean } = {}) {
   const u = await requireUser('create', 'Document')
   if (!SENSITIVE_DOC_ROLES.includes(u.role)) throw new AuthzError('FORBIDDEN')
 
@@ -170,7 +170,7 @@ export async function generateAnnexPdf(annexId: string) {
       arranger: credit(w, 'ARRANGER'),
     })),
     regNo: `${a.id.slice(-5).toUpperCase()} / ${a.annexDate.getFullYear()}`,
-  })
+  }, { withSeal: opts.withSeal ?? true })
 
   const buf = await renderPdf(html)
   const filename = `annex-${a.id}-draft.pdf`
@@ -206,6 +206,109 @@ export async function generateAnnexPdf(annexId: string) {
   }
 
   return doc
+}
+
+/**
+ * Generate the standalone «تفويض وإقرار» PDF for an annex — used alongside a
+ * DISTRIBUTION annex. Same auth/redaction gates as generateAnnexPdf; the
+ * document is attached to the same annex and appears in its documents list.
+ * `variant`: 'tafweed' (standalone tafweed) or 'combined' (annex + tafweed).
+ */
+async function generateAnnexAuxiliaryPdf(
+  annexId: string,
+  variant: 'tafweed' | 'combined',
+  opts: { withSeal?: boolean } = {},
+) {
+  const u = await requireUser('create', 'Document')
+  if (!SENSITIVE_DOC_ROLES.includes(u.role)) throw new AuthzError('FORBIDDEN')
+
+  const a = await db.annex.findUnique({
+    where: { id: annexId },
+    include: {
+      contract: { include: { client: true } },
+      works: { where: { deletedAt: null }, include: { credits: true } },
+    },
+  })
+  if (!a || !a.contract) throw new Error('annex not found')
+  const contract = a.contract
+  const client = contract.client
+
+  const fmtAr = (d: Date) =>
+    new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d)
+  const credit = (w: { credits: { role: string; name: string }[] }, role: string) =>
+    w.credits.find((c) => c.role === role)?.name ?? ''
+
+  const data = {
+    number: a.number,
+    masterDateAr: fmtAr(contract.signedDate ?? contract.createdAt),
+    annexDateAr: fmtAr(a.annexDate),
+    party1Name: client.legalName,
+    party1StageName: client.stageName ?? undefined,
+    party1NationalId: client.nationalId,
+    party1Address: client.address ?? undefined,
+    works: a.works.map((w) => ({
+      titleAr: w.title,
+      singer: credit(w, 'PERFORMER') || (client.stageName ?? ''),
+      lyricist: credit(w, 'AUTHOR'),
+      composer: credit(w, 'COMPOSER'),
+      arranger: credit(w, 'ARRANGER'),
+    })),
+    regNo: `${a.id.slice(-5).toUpperCase()} / ${a.annexDate.getFullYear()}`,
+    coverageMode: contract.coverageMode,
+    coverageExclusions: contract.coverageExclusions,
+  }
+
+  const withSeal = opts.withSeal ?? true
+  const html = variant === 'tafweed' ? renderTafweed(data, { withSeal }) : renderAnnexAndTafweed(data, { withSeal })
+  const buf = await renderPdf(html)
+  const suffix = variant === 'tafweed' ? 'tafweed' : 'annex-and-tafweed'
+  const filename = `annex-${a.id}-${suffix}.pdf`
+  const storageDir = path.resolve(STORAGE)
+  await mkdir(storageDir, { recursive: true })
+  const storagePath = path.join(storageDir, filename)
+  await writeFile(storagePath, buf)
+
+  const doc = await db.document.create({
+    data: { filename, storagePath, status: 'DRAFT', annexId: a.id },
+  })
+  await writeAudit({
+    actorId: u.id,
+    action: 'CREATE',
+    entity: 'Document',
+    entityId: doc.id,
+    after: { filename, status: 'DRAFT' },
+  })
+  try { await queues.drive.add('backup', { clientId: client.id }) } catch (err) {
+    console.warn(`[generateAnnex ${variant}] Drive enqueue failed (best-effort):`, err)
+  }
+  try {
+    const title =
+      variant === 'tafweed'
+        ? `تم إنشاء تفويض PDF للملحق رقم ${a.number}`
+        : `تم إنشاء ملحق + تفويض PDF للملحق رقم ${a.number}`
+    await notifyRecordActivity({
+      entity: 'MasterContract',
+      entityId: contract.id,
+      clientId: client.id,
+      actorId: u.id,
+      title,
+      href: `/contracts/${contract.id}`,
+    })
+  } catch (err) {
+    console.warn(`[generateAnnex ${variant}] notify failed (best-effort):`, err)
+  }
+
+  return doc
+}
+
+/** Generate the tafweed-only PDF (standalone authorization document). */
+export async function generateAnnexTafweedPdf(annexId: string, opts: { withSeal?: boolean } = {}) {
+  return generateAnnexAuxiliaryPdf(annexId, 'tafweed', opts)
+}
+
+/** Generate the combined annex + tafweed PDF (annex page + hard page break + tafweed). */
+export async function generateAnnexCombinedPdf(annexId: string, opts: { withSeal?: boolean } = {}) {
+  return generateAnnexAuxiliaryPdf(annexId, 'combined', opts)
 }
 
 export async function markExecuted(documentId: string, signedFilePath: string) {

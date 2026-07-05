@@ -50,6 +50,16 @@ export function GenerateContractForm({ contractId }: Props) {
         بالضغط على الزر أدناه، سيتم توليد ملف PDF للعقد وحفظه كمسودة. تأكّد من مراجعة البيانات أعلاه قبل المتابعة.
       </p>
 
+      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-line bg-ink-soft p-3 text-sm">
+        <input type="checkbox" name="withSeal" value="true" defaultChecked className="h-4 w-4 accent-gold-400" />
+        <span>
+          <span className="block text-foreground">إضافة ختم الشركة</span>
+          <span className="block text-xs text-muted">
+            أزل العلامة للحصول على مسودة بدون ختم (مثلاً لتوقيع الطرف الأول قبل ختمها من الشركة).
+          </span>
+        </span>
+      </label>
+
       {state.error && (
         <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
           {state.error}

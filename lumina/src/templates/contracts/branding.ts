@@ -3,17 +3,25 @@
 // block. All values that flow in from callers are HTML-escaped by the caller.
 import { escapeHtml } from './_layout'
 
-/** Company identity used across generated documents (Lumina Waves = الطرف الثاني). */
+/** Company identity used across generated documents (Lumina Waves = الطرف الثاني).
+ *
+ * Single-person LLC («شركة ذات مسؤولية محدودة – شخص واحد») established under
+ * Egyptian Law 159/1981 (Companies Law). The legal description embeds the
+ * commercial-registration number and identifies the manager as the signatory. */
 export const COMPANY = {
-  nameAr: 'لومينا ويفز للإنتاج الموسيقي',
+  nameAr: 'لومينا ويفز للإنتاج الفني',
   nameEn: 'LUMINA WAVES PRODUCTIONS',
   taglineAr: 'الطرف الثاني',
+  /** Legal representative details (manager who signs on behalf of the company). */
+  managerAr: 'عمرو جمال عبدالخالق محمد سنجر',
+  managerNationalId: '٢٨٨٠٧٢٨١٦٠٣١٥٥',
+  /** Commercial-registration number issued by the Egyptian Registry. */
+  crNumber: '٢٨٥٧٦٩',
   // Legal description of Party 2 used in the contract preamble/intro.
   legalDescAr:
-    'شركة لومينا ويفز للإنتاج الموسيقي، شركة مؤسسة طبقًا للقوانين المعمول بها، ويمثلها في التوقيع على هذا العقد ممثلها القانوني',
+    'شركة لومينا ويفز للإنتاج الفني، شركة ذات مسؤولية محدودة – شخص واحد – مؤسسة طبقًا لقانون شركات المساهمة والتوصية بالأسهم والمسؤولية المحدودة رقم ١٥٩ لسنة ١٩٨١ ولائحته التنفيذية، سجل تجاري رقم ٢٨٥٧٦٩، ويمثلها في التوقيع على هذا العقد المدير/ عمرو جمال عبدالخالق محمد سنجر بصفته المدير الوحيد والمفوض بالتوقيع منفردًا',
   email: 'notices@luminawaves.com',
-  addressAr: 'القاهرة، جمهورية مصر العربية',
-  // Placeholder commercial-registration line; replace with the real CR/Tax id.
+  addressAr: 'جمهورية مصر العربية',
   regLabelAr: 'سجل تجاري',
 } as const
 
@@ -166,9 +174,21 @@ export function letterheadHtml(): string {
 
 /**
  * Signature block: Party 1 (artist) and Party 2 (Lumina Waves) signature lines,
- * with the official seal stamped over Party 2.
+ * with the official seal stamped over Party 2. `withSeal=false` produces the
+ * exact same layout but omits the seal graphic — used when the caller wants a
+ * clean unsigned draft (e.g. to hand to the artist for their own signature).
  */
-export function signatureBlockHtml({ party1Label, regNo }: { party1Label: string; regNo?: string }): string {
+export function signatureBlockHtml({
+  party1Label,
+  regNo,
+  withSeal = true,
+}: {
+  party1Label: string
+  regNo?: string
+  withSeal?: boolean
+}): string {
+  const stamp = withSeal ? `<div class="lw-stamp">${stampSvg({ regNo, size: 150, variant: 'ink' })}</div>` : ''
+  const p2Line = withSeal ? 'التوقيع والختم' : 'التوقيع'
   return `<div class="lw-signatures">
   <div class="lw-sig">
     <div class="lw-sig-role">الطرف الأول</div>
@@ -178,8 +198,8 @@ export function signatureBlockHtml({ party1Label, regNo }: { party1Label: string
   <div class="lw-sig lw-sig-party2">
     <div class="lw-sig-role">الطرف الثاني</div>
     <div class="lw-sig-name">${escapeHtml(COMPANY.nameAr)}</div>
-    <div class="lw-sig-line">التوقيع والختم</div>
-    <div class="lw-stamp">${stampSvg({ regNo, size: 150, variant: 'ink' })}</div>
+    <div class="lw-sig-line">${p2Line}</div>
+    ${stamp}
   </div>
 </div>`
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAnnex } from '@/services/annexes'
-import { uploadDocument, generateAnnexPdf } from '@/services/documents'
+import { uploadDocument, generateAnnexPdf, generateAnnexTafweedPdf, generateAnnexCombinedPdf } from '@/services/documents'
 import { createRelease, addTrackToRelease } from '@/services/releases'
 import { createFolder } from '@/services/folders'
 import { softDeleteClient, hardDeleteClient } from '@/services/clients'
@@ -44,6 +44,8 @@ export interface AnnexState {
   error: string | null
   /** True once the mutation succeeded — dialogs toast and close on this. */
   ok?: boolean
+  /** Number of works auto-imported from the uploaded Excel/CSV, if any. */
+  importedWorks?: number
 }
 
 export async function addAnnex(
@@ -55,15 +57,42 @@ export async function addAnnex(
 
   if (!contractId) return { error: 'معرّف العقد مفقود.' }
 
+  let annexId: string
   try {
-    await createAnnex({ contractId, annexDate: new Date() })
+    const annex = await createAnnex({ contractId, annexDate: new Date() })
+    annexId = String(annex.id)
   } catch (err) {
     if (err instanceof AuthzError) return { error: 'ليس لديك صلاحية لإضافة ملحق.' }
     return { error: 'تعذّر إضافة الملحق. يُرجى المحاولة مرة أخرى.' }
   }
 
+  // Optional Excel/CSV works import — same format as the SALE contract's
+  // works file (col A = performer, col B = title). Failure is best-effort:
+  // a bad file must not block the annex creation.
+  let importedWorks = 0
+  const file = formData.get('worksFile')
+  if (file instanceof File && file.size > 0) {
+    try {
+      const { parseWorksSpreadsheet } = await import('@/lib/works-import')
+      const { createWork } = await import('@/services/works')
+      const buf = Buffer.from(await file.arrayBuffer())
+      const rows = parseWorksSpreadsheet(buf)
+      for (const r of rows) {
+        await createWork({
+          title: r.title,
+          rightsAxis: 'BOTH',
+          annexId,
+          credits: r.performer ? [{ role: 'PERFORMER', name: r.performer }] : [],
+        })
+      }
+      importedWorks = rows.length
+    } catch (err) {
+      console.warn('[addAnnex] works Excel import failed (best-effort):', err)
+    }
+  }
+
   revalidatePath('/clients/' + clientId)
-  return { error: null, ok: true }
+  return { error: null, ok: true, importedWorks }
 }
 
 export interface GenAnnexState {
@@ -71,17 +100,30 @@ export interface GenAnnexState {
   ok?: boolean
 }
 
-/** Generate a prefilled DRAFT PDF for an annex; it appears in the annex's documents. */
+/**
+ * Generate a prefilled DRAFT PDF for an annex; it appears in the annex's
+ * documents. `variant` picks between the annex only, the tafweed only, or the
+ * combined 2-page PDF (annex + tafweed). `withSeal` toggles the company stamp
+ * on the Party-2 signature line (default on).
+ */
 export async function generateAnnexDraft(
   _prev: GenAnnexState,
   formData: FormData,
 ): Promise<GenAnnexState> {
   const annexId = String(formData.get('annexId') ?? '').trim()
   const contractId = String(formData.get('contractId') ?? '').trim()
+  const variant = String(formData.get('variant') ?? 'annex').trim() as 'annex' | 'tafweed' | 'combined'
+  const withSeal = String(formData.get('withSeal') ?? 'true').trim() !== 'false'
   if (!annexId) return { error: 'معرّف الملحق مفقود.' }
 
   try {
-    await generateAnnexPdf(annexId)
+    if (variant === 'tafweed') {
+      await generateAnnexTafweedPdf(annexId, { withSeal })
+    } else if (variant === 'combined') {
+      await generateAnnexCombinedPdf(annexId, { withSeal })
+    } else {
+      await generateAnnexPdf(annexId, { withSeal })
+    }
   } catch (err) {
     if (err instanceof AuthzError) return { error: 'ليس لديك صلاحية لإنشاء مسودة الملحق.' }
     return { error: 'تعذّر إنشاء مسودة الملحق. يُرجى المحاولة مرة أخرى.' }

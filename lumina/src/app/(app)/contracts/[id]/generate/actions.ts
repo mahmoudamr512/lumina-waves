@@ -18,11 +18,11 @@ export async function generateContract(
   contractId: string,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _prev: GenerateContractState,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _formData: FormData,
+  formData: FormData,
 ): Promise<GenerateContractState> {
+  const withSeal = String(formData.get('withSeal') ?? 'true').trim() !== 'false'
   try {
-    const doc = await generateContractPdf(contractId)
+    const doc = await generateContractPdf(contractId, { withSeal })
     revalidatePath(`/contracts/${contractId}/generate`)
     return { error: null, docId: doc.id }
   } catch (err) {
