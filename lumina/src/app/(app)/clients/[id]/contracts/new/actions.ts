@@ -93,9 +93,16 @@ export async function addContract(
     if (file instanceof File && file.size > 0) {
       try {
         const buf = Buffer.from(await file.arrayBuffer())
-        const rows = parseWorksSpreadsheet(buf)
+        const { headers, rows } = parseWorksSpreadsheet(buf)
         if (rows.length > 0) {
           const annex = await createAnnex({ contractId, annexDate: signedDate ?? new Date() })
+          // Persist Excel headers on both the contract (for Art.3 works table
+          // rendering) and the annex (for the annex/tafweed PDFs).
+          if (headers.length) {
+            const { db } = await import('@/lib/db')
+            await db.masterContract.update({ where: { id: contractId }, data: { worksHeaders: headers } })
+            await db.annex.update({ where: { id: annex.id }, data: { worksHeaders: headers } })
+          }
           for (const r of rows) {
             await createWork({
               title: r.title,

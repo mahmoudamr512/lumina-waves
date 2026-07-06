@@ -75,8 +75,15 @@ export async function addAnnex(
     try {
       const { parseWorksSpreadsheet } = await import('@/lib/works-import')
       const { createWork } = await import('@/services/works')
+      const { db } = await import('@/lib/db')
       const buf = Buffer.from(await file.arrayBuffer())
-      const rows = parseWorksSpreadsheet(buf)
+      const { headers, rows } = parseWorksSpreadsheet(buf)
+      // Persist the user's Excel column headers on the annex so the generated
+      // PDF's works table renders them verbatim (rather than defaulting to
+      // «الأغنية | المطرب | المؤلف | الملحن | الموزع»).
+      if (headers.length) {
+        await db.annex.update({ where: { id: annexId }, data: { worksHeaders: headers } })
+      }
       for (const r of rows) {
         await createWork({
           title: r.title,
@@ -89,6 +96,18 @@ export async function addAnnex(
     } catch (err) {
       console.warn('[addAnnex] works Excel import failed (best-effort):', err)
     }
+  }
+
+  // Best-effort: auto-generate BOTH the annex PDF and the standalone tafweed PDF
+  // as DRAFT documents so both are ready the moment the annex is created. The
+  // user then just picks which one to download/print rather than having to
+  // trigger generation each time. Failure here NEVER blocks annex creation.
+  try {
+    const { generateAnnexPdf, generateAnnexTafweedPdf } = await import('@/services/documents')
+    await generateAnnexPdf(annexId)
+    await generateAnnexTafweedPdf(annexId)
+  } catch (err) {
+    console.warn('[addAnnex] auto PDF generation failed (best-effort):', err)
   }
 
   revalidatePath('/clients/' + clientId)
@@ -113,7 +132,9 @@ export async function generateAnnexDraft(
   const annexId = String(formData.get('annexId') ?? '').trim()
   const contractId = String(formData.get('contractId') ?? '').trim()
   const variant = String(formData.get('variant') ?? 'annex').trim() as 'annex' | 'tafweed' | 'combined'
-  const withSeal = String(formData.get('withSeal') ?? 'true').trim() !== 'false'
+  // An unchecked HTML checkbox is OMITTED from FormData entirely — presence
+  // means checked. Anything else (missing / other) is treated as unchecked.
+  const withSeal = formData.get('withSeal') === 'true'
   if (!annexId) return { error: 'معرّف الملحق مفقود.' }
 
   try {
