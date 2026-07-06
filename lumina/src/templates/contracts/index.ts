@@ -105,6 +105,8 @@ export type ContractData = {
   buyoutAmountWords?: string
   /** Works being sold/assigned, listed in the consideration clause of a sale contract. */
   works?: { titleAr: string; performer?: string }[]
+  /** Optional 2-column headers for the SALE Article-3 works table (from Excel). */
+  worksHeaders?: string[]
 }
 
 export type Work = {
@@ -127,6 +129,8 @@ export type AnnexData = {
   party1NationalId: string
   party1Address?: string
   works: Work[]
+  /** Optional custom headers for the works table (typically from Excel upload). */
+  worksHeaders?: string[]
   regNo?: string
 }
 
@@ -231,8 +235,11 @@ export function renderContract(
     const worksRows = (d.works ?? [])
       .map((w) => `<tr><td>${escapeHtml(w.performer ?? d.party1StageName ?? d.party1Name)}</td><td>${escapeHtml(w.titleAr)}</td></tr>`)
       .join('')
+    // Prefer the caller's Excel headers when provided (first two columns).
+    const saleH0 = d.worksHeaders?.[0]?.trim() || 'المؤدّي'
+    const saleH1 = d.worksHeaders?.[1]?.trim() || 'اسم المصنّف'
     const worksTable = worksRows
-      ? `<table><thead><tr><th>المؤدّي</th><th>اسم المصنّف</th></tr></thead><tbody>${worksRows}</tbody></table>`
+      ? `<table><thead><tr><th>${escapeHtml(saleH0)}</th><th>${escapeHtml(saleH1)}</th></tr></thead><tbody>${worksRows}</tbody></table>`
       : `<p>وذلك عن كافة المصنفات الفنية المبيّنة تفصيلًا في ملاحق هذا العقد.</p>`
 
     const saleTamheed = `<section class="lw-clause"><h2 class="lw-clause-title">تمهيد</h2><div class="lw-clause-body">
@@ -319,16 +326,22 @@ export type TafweedData = AnnexData & {
   coverageExclusions?: string[]
 }
 
-/** Shared works-table markup for both the annex and the tafweed. */
-function worksTableHtml(works: Work[]): string {
+/** Default column headers for the works table when the caller didn't supply custom ones. */
+const DEFAULT_WORKS_HEADERS = ['الأغنية', 'المطرب', 'المؤلف', 'الملحن', 'الموزع']
+
+/** Shared works-table markup for both the annex and the tafweed. `headers` lets
+ * the caller override the column names verbatim (e.g. from an uploaded Excel). */
+function worksTableHtml(works: Work[], headers: readonly string[] = []): string {
+  const cols = headers.length ? headers : DEFAULT_WORKS_HEADERS
   const rows = works
     .map(
       (w) =>
         `<tr><td>${escapeHtml(w.titleAr)}</td><td>${escapeHtml(w.singer)}</td><td>${escapeHtml(w.lyricist)}</td><td>${escapeHtml(w.composer)}</td><td>${escapeHtml(w.arranger)}</td></tr>`,
     )
     .join('')
+  const headerRow = cols.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
   return `<table>
-    <thead><tr><th>الأغنية</th><th>المطرب</th><th>المؤلف</th><th>الملحن</th><th>الموزع</th></tr></thead>
+    <thead><tr>${headerRow}</tr></thead>
     <tbody>${rows}</tbody>
   </table>`
 }
@@ -353,7 +366,7 @@ function annexBodyHtml(d: AnnexData): string {
     ${clause(0, '', `<p>هذا الملحق جزءٌ لا يتجزأ من العقد الأصلي الموقع بين الطرفين بتاريخ <strong>${master}</strong> ومتمم له ولا يُفسَّر بدونه.</p>`)}
     ${clause(1, '', `
       <p>منح الطرف الأول — بموجب هذا الملحق — الطرفَ الثاني الحق الحصري في استغلال والترخيص باستغلال كافة المصنفات الفنية التي سيتم إصدارها طوال مدة سريان العقد، وكذا المصنفات المذكورة أدناه وكلماتها وألحانها والمقاطع الغنائية الخاصة بها والتصوير العائد لها وصور المطربين المؤدّين لها، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢، وبكافة وسائل الاستغلال المالي والتوزيع الرقمي المتاحة حاليًا أو مستقبلًا. وبياناتها كالتالي:</p>
-      ${worksTableHtml(d.works)}`)}
+      ${worksTableHtml(d.works, d.worksHeaders)}`)}
     ${clause(2, '', `<p>يقر الطرف الأول بأنه يمتلك كافة الحقوق اللازمة لاستغلال المصنفات الممنوح حقوق استغلالها للطرف الثاني بموجب هذا الملحق، وبكامل مسؤوليته أمام أي طرف ثالث قد يدّعي أي حقوق على تلك المصنفات بما فيهم المؤلفون والملحنون، ويتحمل وحده المسؤولية الكاملة عن أي قضايا أو منازعات تتعلق بمضمون أو محتوى أو ملكية تلك المصنفات.</p>`)}
     ${clause(3, '', `<p>تظل باقي بنود العقد الأصلي سارية.</p>`)}
     ${clause(4, '', `<p>حُرِّر هذا الملحق من نسختين متطابقتين بيد كل طرف نسخة للعمل بموجبها عند الحاجة.</p>`)}`
@@ -374,7 +387,7 @@ function tafweedBodyHtml(d: TafweedData): string {
     <p>أُفوّض أنا / ${name}${stage} - المقيم في: ${addr}، وأحمل رقم قومي ${nid}، بصفتي مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية.</p>
     <p>السادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)} — حصريًا في استغلال والترخيص باستغلال الأغاني المذكورة أدناه وكلماتها وألحانها وكذا المقاطع الغنائية الخاصة بها وصور المؤدّي لها للاستغلال في جمهورية مصر العربية وجميع أنحاء العالم، ومنها على سبيل المثال لا الحصر: ${coverage}. ويقوم الطرف الثاني أو من يرخّص له بذلك باستغلالها عبر تلك الشبكات على اختلاف أنواعها بشكل حصري.</p>
     <p>وأُقرّ بأنني أملك قانونًا كافة حقوق استغلال تلك الأغاني ماليًا وأنه ليس للغير عليها أي حق من الحقوق التي حماها قانون حماية حقوق الملكية الفكرية. كما أُقرّ بأنني مسؤولٌ وحدي تجاه الغير عن أي حقوق للغير تتعلق بالأغاني المذكورة أدناه. كما ألتزم بتسليم ${escapeHtml(COMPANY.nameAr)} أي أوراق ومستندات دالة على هذه الحقوق عند طلبها وذلك في خلال ثلاثة أيام عمل من طلبها، وذلك طبقًا للعقد الموقع بيني وبين ${escapeHtml(COMPANY.nameAr)} بتاريخ <strong>${master}</strong>.</p>
-    ${worksTableHtml(d.works)}
+    ${worksTableHtml(d.works, d.worksHeaders)}
     <p style="font-weight:700;margin-top:1em">وهذا إقرار وتفويض منّي بذلك.</p>
     <p style="margin-top:1em">تحريرًا في: <strong>${dateAr}</strong>.</p>
     <div style="margin-top:2em">

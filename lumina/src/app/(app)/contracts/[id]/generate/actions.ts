@@ -20,7 +20,9 @@ export async function generateContract(
   _prev: GenerateContractState,
   formData: FormData,
 ): Promise<GenerateContractState> {
-  const withSeal = String(formData.get('withSeal') ?? 'true').trim() !== 'false'
+  // An unchecked HTML checkbox is OMITTED from FormData entirely — presence
+  // means checked. Anything else (missing / other) is treated as unchecked.
+  const withSeal = formData.get('withSeal') === 'true'
   try {
     const doc = await generateContractPdf(contractId, { withSeal })
     revalidatePath(`/contracts/${contractId}/generate`)

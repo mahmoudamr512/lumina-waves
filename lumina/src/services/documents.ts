@@ -86,6 +86,7 @@ export async function generateContractPdf(contractId: string, opts: { withSeal?:
     // as the EGP buyout amount) + the list of works being sold.
     buyoutAmountEgp: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
     works: saleWorks.length ? saleWorks : undefined,
+    worksHeaders: k.worksHeaders?.length ? k.worksHeaders : undefined,
   }, { withSeal: opts.withSeal ?? true })
 
   const buf = await renderPdf(html)
@@ -97,7 +98,7 @@ export async function generateContractPdf(contractId: string, opts: { withSeal?:
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
-    data: { filename, storagePath, status: 'DRAFT', contractId: k.id },
+    data: { filename, storagePath, status: 'DRAFT', variant: 'CONTRACT_DRAFT', contractId: k.id },
   })
 
   await writeAudit({
@@ -169,6 +170,7 @@ export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boole
       composer: credit(w, 'COMPOSER'),
       arranger: credit(w, 'ARRANGER'),
     })),
+    worksHeaders: a.worksHeaders?.length ? a.worksHeaders : undefined,
     regNo: `${a.id.slice(-5).toUpperCase()} / ${a.annexDate.getFullYear()}`,
   }, { withSeal: opts.withSeal ?? true })
 
@@ -180,7 +182,7 @@ export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boole
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
-    data: { filename, storagePath, status: 'DRAFT', annexId: a.id },
+    data: { filename, storagePath, status: 'DRAFT', variant: 'ANNEX_DRAFT', annexId: a.id },
   })
   await writeAudit({
     actorId: u.id,
@@ -253,6 +255,7 @@ async function generateAnnexAuxiliaryPdf(
       composer: credit(w, 'COMPOSER'),
       arranger: credit(w, 'ARRANGER'),
     })),
+    worksHeaders: a.worksHeaders?.length ? a.worksHeaders : undefined,
     regNo: `${a.id.slice(-5).toUpperCase()} / ${a.annexDate.getFullYear()}`,
     coverageMode: contract.coverageMode,
     coverageExclusions: contract.coverageExclusions,
@@ -269,7 +272,13 @@ async function generateAnnexAuxiliaryPdf(
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
-    data: { filename, storagePath, status: 'DRAFT', annexId: a.id },
+    data: {
+      filename,
+      storagePath,
+      status: 'DRAFT',
+      variant: variant === 'tafweed' ? 'TAFWEED' : 'ANNEX_AND_TAFWEED',
+      annexId: a.id,
+    },
   })
   await writeAudit({
     actorId: u.id,
@@ -364,6 +373,7 @@ export async function uploadDocument(input: {
       filename: safeDisplayName,
       storagePath,
       status: 'EXECUTED',
+      variant: 'UPLOAD',
       contractId: input.contractId,
       annexId: input.annexId,
       folderId: input.folderId,
