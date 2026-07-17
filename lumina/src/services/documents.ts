@@ -408,7 +408,7 @@ export async function generateContractTafweedPdf(contractId: string, opts: { wit
       entityId: k.id,
       clientId: k.client.id,
       actorId: u.id,
-      title: 'تم إنشاء تقرير وتفويض PDF لعقد البيع',
+      title: 'تم إنشاء إقرار PDF لعقد البيع',
       href: `/contracts/${k.id}`,
     })
   } catch (err) {
@@ -509,7 +509,7 @@ export async function generateContractAndTafweedPdf(contractId: string, opts: { 
       entityId: k.id,
       clientId: k.client.id,
       actorId: u.id,
-      title: 'تم إنشاء عقد + تقرير وتفويض PDF لعقد البيع',
+      title: 'تم إنشاء عقد + إقرار PDF لعقد البيع',
       href: `/contracts/${k.id}`,
     })
   } catch (err) {

@@ -478,12 +478,14 @@ export function renderAnnexAndTafweed(d: TafweedData, opts: { withSeal?: boolean
   })
 }
 
-// ── SALE tafweed («تقرير وتفويض للبيع والتنازل») ─────────────────────────────
+// ── SALE ekrar («إقرار») ────────────────────────────────────────────────────
 // Standalone artist attestation for a SALE (بيع وتنازل) contract, modelled on
 // the DISTRIBUTION tafweed but with the correct Egyptian sale terms: the artist
 // asserts a permanent, irrevocable transfer of full economic rights (not a
-// license), quotes the buyout amount + words, honours the contract's coverage
-// mode + exclusions, and lists the works being sold.
+// license), honours the contract's coverage mode + exclusions, and lists the
+// works being sold using the EXACT columns/headers from the uploaded Excel.
+// The buyout amount is intentionally NOT shown — the ekrar is a pure
+// rights-transfer document (the price lives on the sale contract itself).
 
 export type SaleTafweedData = {
   party1Name: string
@@ -513,36 +515,30 @@ function saleTafweedBodyHtml(d: SaleTafweedData): string {
   const dateAr = escapeHtml(d.contractDateAr)
   const coverage = coverageParagraph(d.coverageMode, d.coverageExclusions)
 
-  const amount = d.buyoutAmountEgp != null ? d.buyoutAmountEgp.toLocaleString('en-US') : '____'
-  const wordsText = d.buyoutAmountWords ?? (d.buyoutAmountEgp != null ? egpInWords(d.buyoutAmountEgp) : '')
-  const words = wordsText ? ` (${escapeHtml(wordsText)} فقط لا غير)` : ''
-
-  // Works table: prefer raw Excel grid, else derived, else nothing.
+  // Works table: ONLY render when an Excel was uploaded (worksTable set). No
+  // fallback to derived defaults with hard-coded «المؤدّي / اسم المصنّف»
+  // headers — for a SALE ekrar we take the exact headers + columns from the
+  // Excel or we don't render the table at all.
   let works = ''
-  if (d.worksTable && d.worksTable.rows.length) {
-    const cols = d.worksTable.headers.length ? d.worksTable.headers : ['المؤدّي', 'اسم المصنّف']
-    const headerRow = cols.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
+  if (d.worksTable && d.worksTable.rows.length && d.worksTable.headers.length) {
+    const headerRow = d.worksTable.headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
     const bodyRows = d.worksTable.rows
       .map((row) => `<tr>${row.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`)
       .join('')
     works = `<table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table>`
-  } else if ((d.works ?? []).length) {
-    const worksRows = (d.works ?? [])
-      .map((w) => `<tr><td>${escapeHtml(w.performer ?? d.party1StageName ?? d.party1Name)}</td><td>${escapeHtml(w.titleAr)}</td></tr>`)
-      .join('')
-    const h0 = d.worksHeaders?.[0]?.trim() || 'المؤدّي'
-    const h1 = d.worksHeaders?.[1]?.trim() || 'اسم المصنّف'
-    works = `<table><thead><tr><th>${escapeHtml(h0)}</th><th>${escapeHtml(h1)}</th></tr></thead><tbody>${worksRows}</tbody></table>`
   }
 
+  // NOTE: the SALE ekrar deliberately OMITS the buyout amount. It is a pure
+  // rights-transfer attestation for signature — the price lives on the sale
+  // contract itself, not in the artist's ekrar.
   return `
-    <h2 class="lw-clause-title" style="text-align:center;margin:1.2em 0 1em">تقرير وتفويض — بيع وتنازل عن مصنفات فنية</h2>
+    <h2 class="lw-clause-title" style="text-align:center;margin:1.2em 0 1em">إقرار</h2>
+    <p style="text-align:end;margin:0 0 1em"><strong>تحريرًا في: ${dateAr}</strong></p>
     <p>أُقرّ أنا / ${name}${stage} — المقيم في: ${addr}، وأحمل رقم قومي ${nid}، بأنني المالك القانوني لكامل الحقوق المالية وحقوق الاستغلال الحصري للمصنفات الفنية المذكورة أدناه.</p>
     <p>وأُقرّ بأنني قد <strong>بعتُ وتنازلتُ</strong> نهائيًا وباتًّا للسادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)} — عن كامل الحقوق المالية وحقوق الاستغلال الحصري لتلك المصنفات، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢ بشأن حماية حقوق الملكية الفكرية، ومنها على سبيل المثال لا الحصر: ${coverage}. ويصبح للطرف الثاني وحده الحق الاستئثاري في استغلال هذه المصنفات والترخيص بها أو المنع منها بأي وجه من الوجوه ودون حدّ زمني.</p>
-    <p>وقد تسلّمتُ مقابل هذا التنازل مبلغًا وقدره <strong>${amount} جنيه مصري</strong>${words} نهائيًا وغير قابل للاسترداد، ولا يستحقّ لي أي مقابل أو نسبة أخرى عن هذه المصنفات بعد ذلك.</p>
     <p>وأُقرّ بأنني أملك قانونًا كافة حقوق استغلال تلك المصنفات ماليًا وأنه ليس للغير عليها أي حق من الحقوق التي حماها قانون حماية حقوق الملكية الفكرية، وأنني مسؤولٌ وحدي تجاه الغير عن أي حقوق تتعلق بالمصنفات المذكورة أدناه. كما ألتزم بتسليم ${escapeHtml(COMPANY.nameAr)} أي أوراق أو مستندات دالة على هذه الحقوق عند طلبها خلال ثلاثة أيام عمل من تاريخ الطلب، وذلك طبقًا لعقد البيع والتنازل الموقع بيني وبين ${escapeHtml(COMPANY.nameAr)} بتاريخ <strong>${dateAr}</strong>.</p>
     ${works}
-    <p style="font-weight:700;margin-top:1em">وهذا إقرار وتفويض منّي بذلك.</p>
+    <p style="font-weight:700;margin-top:1em">وهذا إقرار منّي بذلك.</p>
     <p style="margin-top:1em">تحريرًا في: <strong>${dateAr}</strong>.</p>
     <div style="margin-top:2em">
       <p style="font-weight:700">توقيع المقرِّر (البائع المتنازل)</p>
@@ -550,10 +546,10 @@ function saleTafweedBodyHtml(d: SaleTafweedData): string {
     </div>`
 }
 
-/** Standalone SALE tafweed («تقرير وتفويض للبيع والتنازل»). */
+/** Standalone SALE ekrar («إقرار» — permanent rights-transfer attestation). */
 export function renderSaleTafweed(d: SaleTafweedData, _opts: { withSeal?: boolean } = {}): string {
   return layout({
-    titleAr: fixParens('تقرير وتفويض — بيع وتنازل عن مصنفات فنية'),
+    titleAr: fixParens('إقرار — بيع وتنازل عن مصنفات فنية'),
     bodyHtml: fixParens(saleTafweedBodyHtml(d)),
     letterhead: letterheadHtml(),
     footer: footerHtml(),
@@ -576,7 +572,7 @@ export function renderContractAndSaleTafweed(
   const contractBody = bodyMatch ? bodyMatch[1] : contractHtml
   const tafweedBody = fixParens(saleTafweedBodyHtml(tafweed))
   return layout({
-    titleAr: fixParens('عقد بيع وتنازل + تقرير وتفويض'),
+    titleAr: fixParens('عقد بيع وتنازل + إقرار'),
     bodyHtml: `${contractBody}<div style="page-break-before:always"></div>${tafweedBody}`,
     letterhead: letterheadHtml(),
     footer: footerHtml(),
