@@ -239,23 +239,21 @@ export function renderContract(
     const wordsText = d.buyoutAmountWords ?? (d.buyoutAmountEgp != null ? egpInWords(d.buyoutAmountEgp) : '')
     const words = wordsText ? ` (${escapeHtml(wordsText)} فقط لا غير)` : ' (فقط لا غير)'
     // If an Excel was uploaded, render its raw grid verbatim (arbitrary
-    // columns). Otherwise fall back to the derived 2-column layout with
-    // optional header overrides, or the boilerplate "see annexes" line.
+    // STRICT: only render the works table when an Excel was uploaded. NO
+    // hard-coded fallback headers («المؤدّي / اسم المصنّف») and NO derived
+    // 2-column layout — the Excel is the sole source of truth for shape +
+    // headers. If no Excel, fall back to the boilerplate "see annexes" line.
     let worksTable: string
     if (d.worksTable && d.worksTable.rows.length) {
-      const cols = d.worksTable.headers.length ? d.worksTable.headers : ['المؤدّي', 'اسم المصنّف']
-      const headerRow = cols.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
       const bodyRows = d.worksTable.rows
         .map((row) => `<tr>${row.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`)
         .join('')
-      worksTable = `<table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table>`
-    } else if ((d.works ?? []).length) {
-      const worksRows = (d.works ?? [])
-        .map((w) => `<tr><td>${escapeHtml(w.performer ?? d.party1StageName ?? d.party1Name)}</td><td>${escapeHtml(w.titleAr)}</td></tr>`)
-        .join('')
-      const saleH0 = d.worksHeaders?.[0]?.trim() || 'المؤدّي'
-      const saleH1 = d.worksHeaders?.[1]?.trim() || 'اسم المصنّف'
-      worksTable = `<table><thead><tr><th>${escapeHtml(saleH0)}</th><th>${escapeHtml(saleH1)}</th></tr></thead><tbody>${worksRows}</tbody></table>`
+      // Render <thead> only when the Excel had a header row; otherwise emit a
+      // headerless table so we never invent column names the user didn't type.
+      const thead = d.worksTable.headers.length
+        ? `<thead><tr>${d.worksTable.headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>`
+        : ''
+      worksTable = `<table>${thead}<tbody>${bodyRows}</tbody></table>`
     } else {
       worksTable = `<p>وذلك عن كافة المصنفات الفنية المبيّنة تفصيلًا في ملاحق هذا العقد.</p>`
     }
@@ -518,14 +516,17 @@ function saleTafweedBodyHtml(d: SaleTafweedData): string {
   // Works table: ONLY render when an Excel was uploaded (worksTable set). No
   // fallback to derived defaults with hard-coded «المؤدّي / اسم المصنّف»
   // headers — for a SALE ekrar we take the exact headers + columns from the
-  // Excel or we don't render the table at all.
+  // Excel. If the Excel had no header row (headers = []) the table renders
+  // WITHOUT a <thead> instead of falling back to invented column names.
   let works = ''
-  if (d.worksTable && d.worksTable.rows.length && d.worksTable.headers.length) {
-    const headerRow = d.worksTable.headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
+  if (d.worksTable && d.worksTable.rows.length) {
     const bodyRows = d.worksTable.rows
       .map((row) => `<tr>${row.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`)
       .join('')
-    works = `<table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table>`
+    const thead = d.worksTable.headers.length
+      ? `<thead><tr>${d.worksTable.headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>`
+      : ''
+    works = `<table>${thead}<tbody>${bodyRows}</tbody></table>`
   }
 
   // NOTE: the SALE ekrar deliberately OMITS the buyout amount. It is a pure
