@@ -266,6 +266,12 @@ model Document {
   /// filter «show me all tafweeds» / «show me all annex drafts» / etc.
   /// Legacy uploads have null variant.
   variant     DocumentVariant?
+  /// Documents that belong to the same "signing bundle" share a bundleId. A
+  /// SALE generation, for example, emits BOTH a contract draft and an ekrar
+  /// draft with the same bundleId so the UI can group them ("this ekrar
+  /// belongs to that contract"). Signed uploads carry the same bundleId to
+  /// stay linked to their originating drafts.
+  bundleId    String?
   ocrText     String?         @db.Text // extracted searchable text
   contract    MasterContract? @relation(fields: [contractId], references: [id])
   contractId  String?

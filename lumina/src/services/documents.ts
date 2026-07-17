@@ -25,7 +25,7 @@ const STORAGE = process.env.STORAGE_DIR ?? './.storage'
 // entirely excluded. Fail-closed: any role not in this list is rejected.
 const SENSITIVE_DOC_ROLES: string[] = ['ADMIN', 'LEGAL']
 
-export async function generateContractPdf(contractId: string, opts: { withSeal?: boolean } = {}) {
+export async function generateContractPdf(contractId: string, opts: { withSeal?: boolean; bundleId?: string } = {}) {
   // Gate 1: caller must have `create` permission on Document (standard RBAC).
   const u = await requireUser('create', 'Document')
 
@@ -106,7 +106,7 @@ export async function generateContractPdf(contractId: string, opts: { withSeal?:
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
-    data: { filename, storagePath, status: 'DRAFT', variant: 'CONTRACT_DRAFT', contractId: k.id },
+    data: { filename, storagePath, status: 'DRAFT', variant: 'CONTRACT_DRAFT', contractId: k.id, bundleId: opts.bundleId ?? null },
   })
 
   await writeAudit({
@@ -143,7 +143,7 @@ export async function generateContractPdf(contractId: string, opts: { withSeal?:
  * (embeds the National ID → ADMIN/LEGAL only). The draft is attached to the
  * annex and appears in its documents list, downloadable like any document.
  */
-export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boolean } = {}) {
+export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boolean; bundleId?: string } = {}) {
   const u = await requireUser('create', 'Document')
   if (!SENSITIVE_DOC_ROLES.includes(u.role)) throw new AuthzError('FORBIDDEN')
 
@@ -191,7 +191,7 @@ export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boole
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
-    data: { filename, storagePath, status: 'DRAFT', variant: 'ANNEX_DRAFT', annexId: a.id },
+    data: { filename, storagePath, status: 'DRAFT', variant: 'ANNEX_DRAFT', annexId: a.id, bundleId: opts.bundleId ?? null },
   })
   await writeAudit({
     actorId: u.id,
@@ -228,7 +228,7 @@ export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boole
 async function generateAnnexAuxiliaryPdf(
   annexId: string,
   variant: 'tafweed' | 'combined',
-  opts: { withSeal?: boolean } = {},
+  opts: { withSeal?: boolean; bundleId?: string } = {},
 ) {
   const u = await requireUser('create', 'Document')
   if (!SENSITIVE_DOC_ROLES.includes(u.role)) throw new AuthzError('FORBIDDEN')
@@ -288,6 +288,7 @@ async function generateAnnexAuxiliaryPdf(
       status: 'DRAFT',
       variant: variant === 'tafweed' ? 'TAFWEED' : 'ANNEX_AND_TAFWEED',
       annexId: a.id,
+      bundleId: opts.bundleId ?? null,
     },
   })
   await writeAudit({
@@ -321,12 +322,12 @@ async function generateAnnexAuxiliaryPdf(
 }
 
 /** Generate the tafweed-only PDF (standalone authorization document). */
-export async function generateAnnexTafweedPdf(annexId: string, opts: { withSeal?: boolean } = {}) {
+export async function generateAnnexTafweedPdf(annexId: string, opts: { withSeal?: boolean; bundleId?: string } = {}) {
   return generateAnnexAuxiliaryPdf(annexId, 'tafweed', opts)
 }
 
 /** Generate the combined annex + tafweed PDF (annex page + hard page break + tafweed). */
-export async function generateAnnexCombinedPdf(annexId: string, opts: { withSeal?: boolean } = {}) {
+export async function generateAnnexCombinedPdf(annexId: string, opts: { withSeal?: boolean; bundleId?: string } = {}) {
   return generateAnnexAuxiliaryPdf(annexId, 'combined', opts)
 }
 
@@ -337,7 +338,7 @@ export async function generateAnnexCombinedPdf(annexId: string, opts: { withSeal
  * coverage mode + exclusions and lists the works being sold. Same ADMIN/LEGAL
  * gate as every generated PDF (embeds the National ID).
  */
-export async function generateContractTafweedPdf(contractId: string, opts: { withSeal?: boolean } = {}) {
+export async function generateContractTafweedPdf(contractId: string, opts: { withSeal?: boolean; bundleId?: string } = {}) {
   const u = await requireUser('create', 'Document')
   if (!SENSITIVE_DOC_ROLES.includes(u.role)) throw new AuthzError('FORBIDDEN')
 
@@ -390,7 +391,7 @@ export async function generateContractTafweedPdf(contractId: string, opts: { wit
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
-    data: { filename, storagePath, status: 'DRAFT', variant: 'TAFWEED', contractId: k.id },
+    data: { filename, storagePath, status: 'DRAFT', variant: 'TAFWEED', contractId: k.id, bundleId: opts.bundleId ?? null },
   })
   await writeAudit({
     actorId: u.id,
