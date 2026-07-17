@@ -1,11 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import {
-  generateContractPdf,
-  generateContractTafweedPdf,
-  generateContractAndTafweedPdf,
-} from '@/services/documents'
+import { generateContractPdf, generateContractTafweedPdf } from '@/services/documents'
 import { AuthzError } from '@/lib/errors'
 
 export interface GenerateContractState {
@@ -15,8 +11,9 @@ export interface GenerateContractState {
 
 /**
  * Server Action: generate a Draft PDF for the given contract.
- * `variant` picks between the contract only, the SALE tafweed only, or the
- * combined SALE contract + tafweed (SALE contracts only for the last two).
+ * `variant` picks between the contract only and (for SALE contracts) the
+ * standalone ekrar. Contract and ekrar are always separate PDFs — no combined
+ * variant, per user preference: each document has one clear purpose + filename.
  */
 export async function generateContract(
   contractId: string,
@@ -26,16 +23,15 @@ export async function generateContract(
 ): Promise<GenerateContractState> {
   // Unchecked HTML checkboxes are OMITTED from FormData — presence = checked.
   const withSeal = formData.get('withSeal') === 'true'
-  const variant = String(formData.get('variant') ?? 'contract').trim() as 'contract' | 'tafweed' | 'combined'
+  // The SALE flow deliberately keeps the contract and the ekrar as SEPARATE
+  // PDFs — no "combined" variant. If the user wants both, they generate each
+  // one individually. This avoids confusing filenames + doubled letterheads.
+  const variant = String(formData.get('variant') ?? 'contract').trim() as 'contract' | 'tafweed'
   try {
-    let doc
-    if (variant === 'tafweed') {
-      doc = await generateContractTafweedPdf(contractId, { withSeal })
-    } else if (variant === 'combined') {
-      doc = await generateContractAndTafweedPdf(contractId, { withSeal })
-    } else {
-      doc = await generateContractPdf(contractId, { withSeal })
-    }
+    const doc =
+      variant === 'tafweed'
+        ? await generateContractTafweedPdf(contractId, { withSeal })
+        : await generateContractPdf(contractId, { withSeal })
     revalidatePath(`/contracts/${contractId}/generate`)
     return { error: null, docId: doc.id }
   } catch (err) {
