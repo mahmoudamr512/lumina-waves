@@ -107,6 +107,9 @@ export type ContractData = {
   works?: { titleAr: string; performer?: string }[]
   /** Optional 2-column headers for the SALE Article-3 works table (from Excel). */
   worksHeaders?: string[]
+  /** Optional raw Excel grid — when present, SALE Art.3 renders THIS as the
+   * works table verbatim (any number of columns), not the derived works pair. */
+  worksTable?: { headers: string[]; rows: string[][] }
 }
 
 export type Work = {
@@ -131,6 +134,9 @@ export type AnnexData = {
   works: Work[]
   /** Optional custom headers for the works table (typically from Excel upload). */
   worksHeaders?: string[]
+  /** Optional raw Excel grid — when present, PDFs render THIS as the works
+   * table verbatim (arbitrary columns), not the derived Work rows. */
+  worksTable?: { headers: string[]; rows: string[][] }
   regNo?: string
 }
 
@@ -221,7 +227,7 @@ export function renderContract(
 
   const intro = `
     <p class="lw-intro">أنه في يوم <strong>${dateAr}</strong> تحرر هذا العقد بمدينة <strong>${city}</strong> بين كل من:</p>
-    <p><strong>أولًا:</strong> السيد/ ${name}${stage}، ويحمل بطاقة رقم قومي ${nid}، المقيم بالعنوان: ${addr}، بصفته مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية. <strong>(ويشار إليه بالطرف الأول)</strong></p>
+    <p><strong>أولًا:</strong> السيد/ ${name}${stage}، ويحمل بطاقة رقم قومي ${nid}، المقيم في: ${addr}، بصفته مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية. <strong>(ويشار إليه بالطرف الأول)</strong></p>
     <p><strong>ثانيًا:</strong> السادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)}، ومقرها ${escapeHtml(COMPANY.addressAr)}. <strong>(ويشار إليها بالطرف الثاني)</strong></p>`
 
   // ── Sale & assignment (عقد بيع وتنازل) — SALE: a one-time lump-sum
@@ -232,15 +238,27 @@ export function renderContract(
     // Auto-generate the amount-in-words (تفقيط) from the figure when not supplied.
     const wordsText = d.buyoutAmountWords ?? (d.buyoutAmountEgp != null ? egpInWords(d.buyoutAmountEgp) : '')
     const words = wordsText ? ` (${escapeHtml(wordsText)} فقط لا غير)` : ' (فقط لا غير)'
-    const worksRows = (d.works ?? [])
-      .map((w) => `<tr><td>${escapeHtml(w.performer ?? d.party1StageName ?? d.party1Name)}</td><td>${escapeHtml(w.titleAr)}</td></tr>`)
-      .join('')
-    // Prefer the caller's Excel headers when provided (first two columns).
-    const saleH0 = d.worksHeaders?.[0]?.trim() || 'المؤدّي'
-    const saleH1 = d.worksHeaders?.[1]?.trim() || 'اسم المصنّف'
-    const worksTable = worksRows
-      ? `<table><thead><tr><th>${escapeHtml(saleH0)}</th><th>${escapeHtml(saleH1)}</th></tr></thead><tbody>${worksRows}</tbody></table>`
-      : `<p>وذلك عن كافة المصنفات الفنية المبيّنة تفصيلًا في ملاحق هذا العقد.</p>`
+    // If an Excel was uploaded, render its raw grid verbatim (arbitrary
+    // columns). Otherwise fall back to the derived 2-column layout with
+    // optional header overrides, or the boilerplate "see annexes" line.
+    let worksTable: string
+    if (d.worksTable && d.worksTable.rows.length) {
+      const cols = d.worksTable.headers.length ? d.worksTable.headers : ['المؤدّي', 'اسم المصنّف']
+      const headerRow = cols.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
+      const bodyRows = d.worksTable.rows
+        .map((row) => `<tr>${row.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`)
+        .join('')
+      worksTable = `<table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table>`
+    } else if ((d.works ?? []).length) {
+      const worksRows = (d.works ?? [])
+        .map((w) => `<tr><td>${escapeHtml(w.performer ?? d.party1StageName ?? d.party1Name)}</td><td>${escapeHtml(w.titleAr)}</td></tr>`)
+        .join('')
+      const saleH0 = d.worksHeaders?.[0]?.trim() || 'المؤدّي'
+      const saleH1 = d.worksHeaders?.[1]?.trim() || 'اسم المصنّف'
+      worksTable = `<table><thead><tr><th>${escapeHtml(saleH0)}</th><th>${escapeHtml(saleH1)}</th></tr></thead><tbody>${worksRows}</tbody></table>`
+    } else {
+      worksTable = `<p>وذلك عن كافة المصنفات الفنية المبيّنة تفصيلًا في ملاحق هذا العقد.</p>`
+    }
 
     const saleTamheed = `<section class="lw-clause"><h2 class="lw-clause-title">تمهيد</h2><div class="lw-clause-body">
       <p>الطرف الأول فنان وله نشاط فني، وقد قدّم نفسه على أنه حاصل على كافة حقوق استغلال المصنفات الفنية التي ستُذكر تفصيلًا في هذا العقد وملاحقه. وحيث إن الطرف الثاني قد أبدى رغبته في <strong>شراء وتملّك</strong> كامل الحقوق المالية وحقوق الاستغلال الحصري والأداء الصوتي للمصنفات المؤداة بصوت الطرف الأول والمذكورة حصرًا في هذا العقد، فقد اتفق وتراضى الطرفان — بعد أن أقرّ كل منهما بأهليته القانونية للتعاقد وخلوّ إرادته من كافة عيوب الرضا — على ما يلي:</p>
@@ -329,9 +347,30 @@ export type TafweedData = AnnexData & {
 /** Default column headers for the works table when the caller didn't supply custom ones. */
 const DEFAULT_WORKS_HEADERS = ['الأغنية', 'المطرب', 'المؤلف', 'الملحن', 'الموزع']
 
-/** Shared works-table markup for both the annex and the tafweed. `headers` lets
- * the caller override the column names verbatim (e.g. from an uploaded Excel). */
-function worksTableHtml(works: Work[], headers: readonly string[] = []): string {
+/** Render the works table.
+ *
+ * Precedence:
+ *   1. If `rawTable` is supplied (from an uploaded Excel), render its grid
+ *      verbatim — any number of columns, headers used as-is.
+ *   2. Otherwise fall back to the derived 5-column Work layout, optionally
+ *      overriding the column names with `headers`.
+ */
+function worksTableHtml(
+  works: Work[],
+  headers: readonly string[] = [],
+  rawTable?: { headers: string[]; rows: string[][] },
+): string {
+  if (rawTable && rawTable.rows.length) {
+    const cols = rawTable.headers.length ? rawTable.headers : DEFAULT_WORKS_HEADERS
+    const headerRow = cols.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
+    const bodyRows = rawTable.rows
+      .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
+      .join('')
+    return `<table>
+      <thead><tr>${headerRow}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>`
+  }
   const cols = headers.length ? headers : DEFAULT_WORKS_HEADERS
   const rows = works
     .map(
@@ -357,7 +396,7 @@ function annexBodyHtml(d: AnnexData): string {
 
   const intro = `
     <p class="lw-intro">أنه في يوم <strong>${annexDate}</strong> تحرر هذا الملحق للعقد الموقع بتاريخ <strong>${master}</strong> بين كل من:</p>
-    <p><strong>أولًا:</strong> السيد/ ${name}${stage}، المقيم بالعنوان: ${addr}، ويحمل رقم قومي ${nid}، بصفته مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية. <strong>(ويشار إليه بالطرف الأول)</strong></p>
+    <p><strong>أولًا:</strong> السيد/ ${name}${stage}، المقيم في: ${addr}، ويحمل رقم قومي ${nid}، بصفته مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية. <strong>(ويشار إليه بالطرف الأول)</strong></p>
     <p><strong>ثانيًا:</strong> السادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)}. <strong>(ويشار إليها بالطرف الثاني)</strong></p>`
 
   return `
@@ -366,7 +405,7 @@ function annexBodyHtml(d: AnnexData): string {
     ${clause(0, '', `<p>هذا الملحق جزءٌ لا يتجزأ من العقد الأصلي الموقع بين الطرفين بتاريخ <strong>${master}</strong> ومتمم له ولا يُفسَّر بدونه.</p>`)}
     ${clause(1, '', `
       <p>منح الطرف الأول — بموجب هذا الملحق — الطرفَ الثاني الحق الحصري في استغلال والترخيص باستغلال كافة المصنفات الفنية التي سيتم إصدارها طوال مدة سريان العقد، وكذا المصنفات المذكورة أدناه وكلماتها وألحانها والمقاطع الغنائية الخاصة بها والتصوير العائد لها وصور المطربين المؤدّين لها، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢، وبكافة وسائل الاستغلال المالي والتوزيع الرقمي المتاحة حاليًا أو مستقبلًا. وبياناتها كالتالي:</p>
-      ${worksTableHtml(d.works, d.worksHeaders)}`)}
+      ${worksTableHtml(d.works, d.worksHeaders, d.worksTable)}`)}
     ${clause(2, '', `<p>يقر الطرف الأول بأنه يمتلك كافة الحقوق اللازمة لاستغلال المصنفات الممنوح حقوق استغلالها للطرف الثاني بموجب هذا الملحق، وبكامل مسؤوليته أمام أي طرف ثالث قد يدّعي أي حقوق على تلك المصنفات بما فيهم المؤلفون والملحنون، ويتحمل وحده المسؤولية الكاملة عن أي قضايا أو منازعات تتعلق بمضمون أو محتوى أو ملكية تلك المصنفات.</p>`)}
     ${clause(3, '', `<p>تظل باقي بنود العقد الأصلي سارية.</p>`)}
     ${clause(4, '', `<p>حُرِّر هذا الملحق من نسختين متطابقتين بيد كل طرف نسخة للعمل بموجبها عند الحاجة.</p>`)}`
@@ -387,7 +426,7 @@ function tafweedBodyHtml(d: TafweedData): string {
     <p>أُفوّض أنا / ${name}${stage} - المقيم في: ${addr}، وأحمل رقم قومي ${nid}، بصفتي مالك حقوق الاستغلال المالي والتجاري لمجموعة من المصنفات الفنية.</p>
     <p>السادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)} — حصريًا في استغلال والترخيص باستغلال الأغاني المذكورة أدناه وكلماتها وألحانها وكذا المقاطع الغنائية الخاصة بها وصور المؤدّي لها للاستغلال في جمهورية مصر العربية وجميع أنحاء العالم، ومنها على سبيل المثال لا الحصر: ${coverage}. ويقوم الطرف الثاني أو من يرخّص له بذلك باستغلالها عبر تلك الشبكات على اختلاف أنواعها بشكل حصري.</p>
     <p>وأُقرّ بأنني أملك قانونًا كافة حقوق استغلال تلك الأغاني ماليًا وأنه ليس للغير عليها أي حق من الحقوق التي حماها قانون حماية حقوق الملكية الفكرية. كما أُقرّ بأنني مسؤولٌ وحدي تجاه الغير عن أي حقوق للغير تتعلق بالأغاني المذكورة أدناه. كما ألتزم بتسليم ${escapeHtml(COMPANY.nameAr)} أي أوراق ومستندات دالة على هذه الحقوق عند طلبها وذلك في خلال ثلاثة أيام عمل من طلبها، وذلك طبقًا للعقد الموقع بيني وبين ${escapeHtml(COMPANY.nameAr)} بتاريخ <strong>${master}</strong>.</p>
-    ${worksTableHtml(d.works, d.worksHeaders)}
+    ${worksTableHtml(d.works, d.worksHeaders, d.worksTable)}
     <p style="font-weight:700;margin-top:1em">وهذا إقرار وتفويض منّي بذلك.</p>
     <p style="margin-top:1em">تحريرًا في: <strong>${dateAr}</strong>.</p>
     <div style="margin-top:2em">
@@ -433,6 +472,112 @@ export function renderAnnexAndTafweed(d: TafweedData, opts: { withSeal?: boolean
   return layout({
     titleAr: fixParens(`ملحق رقم (${d.number}) وتفويض`),
     bodyHtml: combined,
+    letterhead: letterheadHtml(),
+    footer: footerHtml(),
+    extraCss: BRANDING_CSS,
+  })
+}
+
+// ── SALE tafweed («تقرير وتفويض للبيع والتنازل») ─────────────────────────────
+// Standalone artist attestation for a SALE (بيع وتنازل) contract, modelled on
+// the DISTRIBUTION tafweed but with the correct Egyptian sale terms: the artist
+// asserts a permanent, irrevocable transfer of full economic rights (not a
+// license), quotes the buyout amount + words, honours the contract's coverage
+// mode + exclusions, and lists the works being sold.
+
+export type SaleTafweedData = {
+  party1Name: string
+  party1StageName?: string
+  party1NationalId: string
+  party1Address?: string
+  /** Contract execution date, Arabic string. */
+  contractDateAr: string
+  /** Buyout amount in EGP. */
+  buyoutAmountEgp?: number
+  /** Amount-in-words override (تفقيط); auto-generated if omitted. */
+  buyoutAmountWords?: string
+  /** Works being sold (used for the tafweed's works table if worksTable absent). */
+  works?: { titleAr: string; performer?: string }[]
+  worksHeaders?: string[]
+  worksTable?: { headers: string[]; rows: string[][] }
+  coverageMode: CoverageMode
+  coverageExclusions?: string[]
+  regNo?: string
+}
+
+function saleTafweedBodyHtml(d: SaleTafweedData): string {
+  const name = escapeHtml(d.party1Name)
+  const stage = d.party1StageName ? ` وشهرته (${escapeHtml(d.party1StageName)})` : ''
+  const nid = escapeHtml(d.party1NationalId)
+  const addr = escapeHtml(d.party1Address ?? '—')
+  const dateAr = escapeHtml(d.contractDateAr)
+  const coverage = coverageParagraph(d.coverageMode, d.coverageExclusions)
+
+  const amount = d.buyoutAmountEgp != null ? d.buyoutAmountEgp.toLocaleString('en-US') : '____'
+  const wordsText = d.buyoutAmountWords ?? (d.buyoutAmountEgp != null ? egpInWords(d.buyoutAmountEgp) : '')
+  const words = wordsText ? ` (${escapeHtml(wordsText)} فقط لا غير)` : ''
+
+  // Works table: prefer raw Excel grid, else derived, else nothing.
+  let works = ''
+  if (d.worksTable && d.worksTable.rows.length) {
+    const cols = d.worksTable.headers.length ? d.worksTable.headers : ['المؤدّي', 'اسم المصنّف']
+    const headerRow = cols.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
+    const bodyRows = d.worksTable.rows
+      .map((row) => `<tr>${row.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`)
+      .join('')
+    works = `<table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table>`
+  } else if ((d.works ?? []).length) {
+    const worksRows = (d.works ?? [])
+      .map((w) => `<tr><td>${escapeHtml(w.performer ?? d.party1StageName ?? d.party1Name)}</td><td>${escapeHtml(w.titleAr)}</td></tr>`)
+      .join('')
+    const h0 = d.worksHeaders?.[0]?.trim() || 'المؤدّي'
+    const h1 = d.worksHeaders?.[1]?.trim() || 'اسم المصنّف'
+    works = `<table><thead><tr><th>${escapeHtml(h0)}</th><th>${escapeHtml(h1)}</th></tr></thead><tbody>${worksRows}</tbody></table>`
+  }
+
+  return `
+    <h2 class="lw-clause-title" style="text-align:center;margin:1.2em 0 1em">تقرير وتفويض — بيع وتنازل عن مصنفات فنية</h2>
+    <p>أُقرّ أنا / ${name}${stage} — المقيم في: ${addr}، وأحمل رقم قومي ${nid}، بأنني المالك القانوني لكامل الحقوق المالية وحقوق الاستغلال الحصري للمصنفات الفنية المذكورة أدناه.</p>
+    <p>وأُقرّ بأنني قد <strong>بعتُ وتنازلتُ</strong> نهائيًا وباتًّا للسادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)} — عن كامل الحقوق المالية وحقوق الاستغلال الحصري لتلك المصنفات، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢ بشأن حماية حقوق الملكية الفكرية، ومنها على سبيل المثال لا الحصر: ${coverage}. ويصبح للطرف الثاني وحده الحق الاستئثاري في استغلال هذه المصنفات والترخيص بها أو المنع منها بأي وجه من الوجوه ودون حدّ زمني.</p>
+    <p>وقد تسلّمتُ مقابل هذا التنازل مبلغًا وقدره <strong>${amount} جنيه مصري</strong>${words} نهائيًا وغير قابل للاسترداد، ولا يستحقّ لي أي مقابل أو نسبة أخرى عن هذه المصنفات بعد ذلك.</p>
+    <p>وأُقرّ بأنني أملك قانونًا كافة حقوق استغلال تلك المصنفات ماليًا وأنه ليس للغير عليها أي حق من الحقوق التي حماها قانون حماية حقوق الملكية الفكرية، وأنني مسؤولٌ وحدي تجاه الغير عن أي حقوق تتعلق بالمصنفات المذكورة أدناه. كما ألتزم بتسليم ${escapeHtml(COMPANY.nameAr)} أي أوراق أو مستندات دالة على هذه الحقوق عند طلبها خلال ثلاثة أيام عمل من تاريخ الطلب، وذلك طبقًا لعقد البيع والتنازل الموقع بيني وبين ${escapeHtml(COMPANY.nameAr)} بتاريخ <strong>${dateAr}</strong>.</p>
+    ${works}
+    <p style="font-weight:700;margin-top:1em">وهذا إقرار وتفويض منّي بذلك.</p>
+    <p style="margin-top:1em">تحريرًا في: <strong>${dateAr}</strong>.</p>
+    <div style="margin-top:2em">
+      <p style="font-weight:700">توقيع المقرِّر (البائع المتنازل)</p>
+      <p>${name}${stage}</p>
+    </div>`
+}
+
+/** Standalone SALE tafweed («تقرير وتفويض للبيع والتنازل»). */
+export function renderSaleTafweed(d: SaleTafweedData, _opts: { withSeal?: boolean } = {}): string {
+  return layout({
+    titleAr: fixParens('تقرير وتفويض — بيع وتنازل عن مصنفات فنية'),
+    bodyHtml: fixParens(saleTafweedBodyHtml(d)),
+    letterhead: letterheadHtml(),
+    footer: footerHtml(),
+    extraCss: BRANDING_CSS,
+  })
+}
+
+/** Combined SALE contract + tafweed (contract page + hard page break + tafweed). */
+export function renderContractAndSaleTafweed(
+  d: ContractData,
+  tafweed: SaleTafweedData,
+  opts: { withSeal?: boolean } = {},
+): string {
+  const contractHtml = renderContract('SALE', d, opts)
+  // Extract just the <body> content of the contract render so we can append
+  // the tafweed body under the same letterhead/footer. The layout wraps
+  // <html>…<body>[content]</body></html>; a regex grab is safer than trying
+  // to re-invoke the internals.
+  const bodyMatch = /<body[^>]*>([\s\S]*)<\/body>/i.exec(contractHtml)
+  const contractBody = bodyMatch ? bodyMatch[1] : contractHtml
+  const tafweedBody = fixParens(saleTafweedBodyHtml(tafweed))
+  return layout({
+    titleAr: fixParens('عقد بيع وتنازل + تقرير وتفويض'),
+    bodyHtml: `${contractBody}<div style="page-break-before:always"></div>${tafweedBody}`,
     letterhead: letterheadHtml(),
     footer: footerHtml(),
     extraCss: BRANDING_CSS,

@@ -5,7 +5,14 @@ import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { AuthzError } from '@/lib/errors'
 import { writeAudit } from '@/lib/audit'
-import { renderContract, renderAnnex, renderTafweed, renderAnnexAndTafweed } from '@/templates/contracts'
+import {
+  renderContract,
+  renderAnnex,
+  renderTafweed,
+  renderAnnexAndTafweed,
+  renderSaleTafweed,
+  renderContractAndSaleTafweed,
+} from '@/templates/contracts'
 import { renderPdf } from '@/lib/pdf'
 import { queues } from '@/lib/queue'
 import { notifyRecordActivity } from '@/services/notifications'
@@ -87,6 +94,7 @@ export async function generateContractPdf(contractId: string, opts: { withSeal?:
     buyoutAmountEgp: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
     works: saleWorks.length ? saleWorks : undefined,
     worksHeaders: k.worksHeaders?.length ? k.worksHeaders : undefined,
+    worksTable: (k.worksTable as { headers: string[]; rows: string[][] } | null) ?? undefined,
   }, { withSeal: opts.withSeal ?? true })
 
   const buf = await renderPdf(html)
@@ -171,6 +179,7 @@ export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boole
       arranger: credit(w, 'ARRANGER'),
     })),
     worksHeaders: a.worksHeaders?.length ? a.worksHeaders : undefined,
+    worksTable: (a.worksTable as { headers: string[]; rows: string[][] } | null) ?? undefined,
     regNo: `${a.id.slice(-5).toUpperCase()} / ${a.annexDate.getFullYear()}`,
   }, { withSeal: opts.withSeal ?? true })
 
@@ -256,6 +265,7 @@ async function generateAnnexAuxiliaryPdf(
       arranger: credit(w, 'ARRANGER'),
     })),
     worksHeaders: a.worksHeaders?.length ? a.worksHeaders : undefined,
+    worksTable: (a.worksTable as { headers: string[]; rows: string[][] } | null) ?? undefined,
     regNo: `${a.id.slice(-5).toUpperCase()} / ${a.annexDate.getFullYear()}`,
     coverageMode: contract.coverageMode,
     coverageExclusions: contract.coverageExclusions,
@@ -318,6 +328,194 @@ export async function generateAnnexTafweedPdf(annexId: string, opts: { withSeal?
 /** Generate the combined annex + tafweed PDF (annex page + hard page break + tafweed). */
 export async function generateAnnexCombinedPdf(annexId: string, opts: { withSeal?: boolean } = {}) {
   return generateAnnexAuxiliaryPdf(annexId, 'combined', opts)
+}
+
+/**
+ * Generate the standalone «تقرير وتفويض» PDF for a SALE contract — mirrors the
+ * DISTRIBUTION annex tafweed but with the sale/assignment wording (permanent
+ * transfer, buyout amount, no license/renewal language). Honours the contract's
+ * coverage mode + exclusions and lists the works being sold. Same ADMIN/LEGAL
+ * gate as every generated PDF (embeds the National ID).
+ */
+export async function generateContractTafweedPdf(contractId: string, opts: { withSeal?: boolean } = {}) {
+  const u = await requireUser('create', 'Document')
+  if (!SENSITIVE_DOC_ROLES.includes(u.role)) throw new AuthzError('FORBIDDEN')
+
+  const k = await db.masterContract.findUnique({
+    where: { id: contractId },
+    include: {
+      client: true,
+      annexes: {
+        where: { deletedAt: null },
+        include: { works: { where: { deletedAt: null }, include: { credits: true } } },
+      },
+    },
+  })
+  if (!k) throw new Error('contract not found')
+  if (k.grantType !== 'SALE') throw new Error('SALE tafweed only applies to SALE contracts')
+
+  const saleWorks = k.annexes.flatMap((a) =>
+    a.works.map((w) => ({
+      titleAr: w.title,
+      performer: w.credits.find((c) => c.role === 'PERFORMER')?.name ?? (k.client.stageName ?? undefined),
+    })),
+  )
+  const dateAr = k.signedDate
+    ? new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(k.signedDate)
+    : new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(k.createdAt)
+
+  const html = renderSaleTafweed(
+    {
+      party1Name: k.client.legalName,
+      party1StageName: k.client.stageName ?? undefined,
+      party1NationalId: k.client.nationalId,
+      party1Address: k.client.address ?? undefined,
+      contractDateAr: dateAr,
+      buyoutAmountEgp: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
+      works: saleWorks.length ? saleWorks : undefined,
+      worksHeaders: k.worksHeaders?.length ? k.worksHeaders : undefined,
+      worksTable: (k.worksTable as { headers: string[]; rows: string[][] } | null) ?? undefined,
+      coverageMode: k.coverageMode,
+      coverageExclusions: k.coverageExclusions,
+      regNo: `${k.id.slice(-5).toUpperCase()} / ${(k.signedDate ?? k.createdAt).getFullYear()}`,
+    },
+    { withSeal: opts.withSeal ?? true },
+  )
+
+  const buf = await renderPdf(html)
+  const filename = `contract-${k.id}-tafweed.pdf`
+  const storageDir = path.resolve(STORAGE)
+  await mkdir(storageDir, { recursive: true })
+  const storagePath = path.join(storageDir, filename)
+  await writeFile(storagePath, buf)
+
+  const doc = await db.document.create({
+    data: { filename, storagePath, status: 'DRAFT', variant: 'TAFWEED', contractId: k.id },
+  })
+  await writeAudit({
+    actorId: u.id,
+    action: 'CREATE',
+    entity: 'Document',
+    entityId: doc.id,
+    after: { filename, status: 'DRAFT' },
+  })
+  try { await queues.drive.add('backup', { clientId: k.client.id }) } catch (err) {
+    console.warn('[generateContractTafweedPdf] Drive enqueue failed (best-effort):', err)
+  }
+  try {
+    await notifyRecordActivity({
+      entity: 'MasterContract',
+      entityId: k.id,
+      clientId: k.client.id,
+      actorId: u.id,
+      title: 'تم إنشاء تقرير وتفويض PDF لعقد البيع',
+      href: `/contracts/${k.id}`,
+    })
+  } catch (err) {
+    console.warn('[generateContractTafweedPdf] notify failed (best-effort):', err)
+  }
+
+  return doc
+}
+
+/** Combined SALE contract + SALE tafweed (contract page + page break + tafweed). */
+export async function generateContractAndTafweedPdf(contractId: string, opts: { withSeal?: boolean } = {}) {
+  const u = await requireUser('create', 'Document')
+  if (!SENSITIVE_DOC_ROLES.includes(u.role)) throw new AuthzError('FORBIDDEN')
+
+  const k = await db.masterContract.findUnique({
+    where: { id: contractId },
+    include: {
+      client: true,
+      annexes: {
+        where: { deletedAt: null },
+        include: { works: { where: { deletedAt: null }, include: { credits: true } } },
+      },
+    },
+  })
+  if (!k) throw new Error('contract not found')
+  if (k.grantType !== 'SALE') throw new Error('SALE combined tafweed only applies to SALE contracts')
+
+  const saleWorks = k.annexes.flatMap((a) =>
+    a.works.map((w) => ({
+      titleAr: w.title,
+      performer: w.credits.find((c) => c.role === 'PERFORMER')?.name ?? (k.client.stageName ?? undefined),
+    })),
+  )
+  const SETTLEMENT_AR: Record<string, string> = {
+    MONTHLY: 'شهرية',
+    QUARTERLY: 'ربع سنوية',
+    SEMIANNUAL: 'نصف سنوية',
+    ANNUAL: 'سنوية',
+  }
+  const dateAr = k.signedDate
+    ? new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(k.signedDate)
+    : new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(k.createdAt)
+  const worksTableJson = (k.worksTable as { headers: string[]; rows: string[][] } | null) ?? undefined
+
+  const contractData = {
+    party1Name: k.client.legalName,
+    party1StageName: k.client.stageName ?? undefined,
+    party1NationalId: k.client.nationalId,
+    party1Address: k.client.address ?? undefined,
+    territory: k.territory,
+    termMonths: k.termMonths ?? 0,
+    coverageMode: k.coverageMode,
+    coverageExclusions: k.coverageExclusions,
+    revenueSharePct: k.revenueShareBps != null ? k.revenueShareBps / 100 : undefined,
+    minPayoutUsd: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
+    settlementFreqAr: k.settlementFreq ? SETTLEMENT_AR[k.settlementFreq] : undefined,
+    noticeDays: k.noticeDays,
+    contractDateAr: dateAr,
+    regNo: `${k.id.slice(-5).toUpperCase()} / ${(k.signedDate ?? k.createdAt).getFullYear()}`,
+    buyoutAmountEgp: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
+    works: saleWorks.length ? saleWorks : undefined,
+    worksHeaders: k.worksHeaders?.length ? k.worksHeaders : undefined,
+    worksTable: worksTableJson,
+  }
+  const tafweedData = {
+    party1Name: k.client.legalName,
+    party1StageName: k.client.stageName ?? undefined,
+    party1NationalId: k.client.nationalId,
+    party1Address: k.client.address ?? undefined,
+    contractDateAr: dateAr,
+    buyoutAmountEgp: k.minPayoutCents != null ? Math.round(k.minPayoutCents / 100) : undefined,
+    works: saleWorks.length ? saleWorks : undefined,
+    worksHeaders: k.worksHeaders?.length ? k.worksHeaders : undefined,
+    worksTable: worksTableJson,
+    coverageMode: k.coverageMode,
+    coverageExclusions: k.coverageExclusions,
+    regNo: `${k.id.slice(-5).toUpperCase()} / ${(k.signedDate ?? k.createdAt).getFullYear()}`,
+  }
+
+  const html = renderContractAndSaleTafweed(contractData, tafweedData, { withSeal: opts.withSeal ?? true })
+  const buf = await renderPdf(html)
+  const filename = `contract-${k.id}-contract-and-tafweed.pdf`
+  const storageDir = path.resolve(STORAGE)
+  await mkdir(storageDir, { recursive: true })
+  const storagePath = path.join(storageDir, filename)
+  await writeFile(storagePath, buf)
+
+  const doc = await db.document.create({
+    data: { filename, storagePath, status: 'DRAFT', variant: 'ANNEX_AND_TAFWEED', contractId: k.id },
+  })
+  await writeAudit({ actorId: u.id, action: 'CREATE', entity: 'Document', entityId: doc.id, after: { filename, status: 'DRAFT' } })
+  try { await queues.drive.add('backup', { clientId: k.client.id }) } catch (err) {
+    console.warn('[generateContractAndTafweedPdf] Drive enqueue failed (best-effort):', err)
+  }
+  try {
+    await notifyRecordActivity({
+      entity: 'MasterContract',
+      entityId: k.id,
+      clientId: k.client.id,
+      actorId: u.id,
+      title: 'تم إنشاء عقد + تقرير وتفويض PDF لعقد البيع',
+      href: `/contracts/${k.id}`,
+    })
+  } catch (err) {
+    console.warn('[generateContractAndTafweedPdf] notify failed (best-effort):', err)
+  }
+  return doc
 }
 
 export async function markExecuted(documentId: string, signedFilePath: string) {

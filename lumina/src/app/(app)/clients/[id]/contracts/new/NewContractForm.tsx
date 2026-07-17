@@ -76,6 +76,14 @@ export default function NewContractForm({ clientId, grantTypes, coverageModes }:
         </Select>
       </Field>
 
+      <Field
+        label="عنوان الطرف الأول (المقيم في)"
+        htmlFor="party1Address"
+        hint="يظهر في مقدمة العقد المولّد. يُحدّث عنوان العميل في السجل تلقائيًا."
+      >
+        <Input id="party1Address" name="party1Address" type="text" placeholder="مثال: القاهرة، مدينة نصر، شارع…" />
+      </Field>
+
       {!isSale && (
         <>
           <div className="grid grid-cols-2 gap-4">

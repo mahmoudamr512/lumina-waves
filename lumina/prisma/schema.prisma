@@ -190,6 +190,10 @@ model MasterContract {
   documents       Document[]
   /// Custom column headers from the uploaded Excel/CSV (SALE Art.3 works table).
   worksHeaders    String[]   @default([])
+  /// Raw works grid preserved verbatim from the uploaded Excel/CSV so the PDF
+  /// can render arbitrary columns (not just the derived performer/title pair).
+  /// Shape: { headers: string[], rows: string[][] }. Absent = use defaults.
+  worksTable      Json?
   createdAt       DateTime   @default(now())
   deletedAt       DateTime?
   purgeAfter      DateTime?
@@ -217,6 +221,10 @@ model Annex {
   /// present, the generated PDF renders these EXACT strings instead of the
   /// default «الأغنية | المطرب | المؤلف | الملحن | الموزع». Empty array = defaults.
   worksHeaders String[]     @default([])
+  /// Raw works grid preserved verbatim from the uploaded Excel/CSV so the PDF
+  /// can render arbitrary columns beyond the derived performer/title pair.
+  /// Shape: { headers: string[], rows: string[][] }. Absent = use defaults.
+  worksTable   Json?
   createdAt  DateTime       @default(now())
   deletedAt  DateTime?
   purgeAfter DateTime?

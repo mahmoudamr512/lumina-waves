@@ -41,6 +41,7 @@ export async function addContract(
   const amountEgpRaw = String(formData.get('amountEgp') ?? '').trim()
   const amountEgp = amountEgpRaw ? parseFloat(amountEgpRaw) : NaN
   const signedDateRaw = String(formData.get('signedDate') ?? '').trim()
+  const party1Address = String(formData.get('party1Address') ?? '').trim()
 
   if (!grantType || !territory) {
     return { error: 'يرجى تعبئة جميع الحقول المطلوبة.' }
@@ -61,13 +62,27 @@ export async function addContract(
       termMonths: termMonths === undefined ? undefined : isNaN(termMonths) ? 36 : termMonths,
       coverageMode,
       coverageExclusions,
-      revenueShareBps: isNaN(revenueShareBps) ? undefined : revenueShareBps,
+      // Revenue-share / settlement / notice-days are licensing fields that only
+      // apply to DISTRIBUTION. A SALE (بيع وتنازل) is a perpetual buyout with a
+      // single lump-sum amount, so we EXPLICITLY skip these and let them be
+      // null on the row (otherwise the form's hidden defaults would leak in).
+      revenueShareBps: grantType === 'SALE' ? undefined : (isNaN(revenueShareBps) ? undefined : revenueShareBps),
       minPayoutCents: isNaN(amountEgp) ? undefined : Math.round(amountEgp * 100),
-      settlementFreq: settlementFreq || undefined,
-      noticeDays: isNaN(noticeDays) ? undefined : noticeDays,
+      settlementFreq: grantType === 'SALE' ? undefined : (settlementFreq || undefined),
+      noticeDays: grantType === 'SALE' ? undefined : (isNaN(noticeDays) ? undefined : noticeDays),
       signedDate,
     })
     contractId = String(created.id)
+    // Best-effort: persist the party-1 address on the underlying client so it
+    // flows into every future PDF and stays visible on the client detail page.
+    if (party1Address) {
+      try {
+        const { db } = await import('@/lib/db')
+        await db.client.update({ where: { id: clientId }, data: { address: party1Address } })
+      } catch (err) {
+        console.warn('[addContract] address save failed (best-effort):', err)
+      }
+    }
   } catch (err) {
     if (err instanceof AuthzError) {
       return { error: 'ليس لديك صلاحية لإنشاء عقد.' }
@@ -93,16 +108,21 @@ export async function addContract(
     if (file instanceof File && file.size > 0) {
       try {
         const buf = Buffer.from(await file.arrayBuffer())
-        const { headers, rows } = parseWorksSpreadsheet(buf)
-        if (rows.length > 0) {
+        const { headers, rows, raw } = parseWorksSpreadsheet(buf)
+        if (rows.length > 0 || raw.length > 0) {
           const annex = await createAnnex({ contractId, annexDate: signedDate ?? new Date() })
-          // Persist Excel headers on both the contract (for Art.3 works table
-          // rendering) and the annex (for the annex/tafweed PDFs).
-          if (headers.length) {
-            const { db } = await import('@/lib/db')
-            await db.masterContract.update({ where: { id: contractId }, data: { worksHeaders: headers } })
-            await db.annex.update({ where: { id: annex.id }, data: { worksHeaders: headers } })
-          }
+          // Persist headers + the raw Excel grid on both the contract (for
+          // SALE Art.3 dynamic table) and the annex (for its own PDFs).
+          const { db } = await import('@/lib/db')
+          const table = headers.length || raw.length ? { headers, rows: raw } : undefined
+          await db.masterContract.update({
+            where: { id: contractId },
+            data: { worksHeaders: headers, worksTable: table },
+          })
+          await db.annex.update({
+            where: { id: annex.id },
+            data: { worksHeaders: headers, worksTable: table },
+          })
           for (const r of rows) {
             await createWork({
               title: r.title,

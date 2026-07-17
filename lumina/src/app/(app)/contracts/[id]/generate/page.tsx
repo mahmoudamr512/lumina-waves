@@ -37,6 +37,11 @@ export default async function GenerateContractPage({ params }: { params: Promise
   const grantLabel = GRANT_TYPES[contract.grantType as keyof typeof GRANT_TYPES]
   const coverageModeLabel = COVERAGE_MODES[contract.coverageMode as keyof typeof COVERAGE_MODES]
   const coverageExclusions = (contract.coverageExclusions ?? []) as string[]
+  const isSale = contract.grantType === 'SALE'
+  const amountEgp =
+    contract.minPayoutCents != null ? Math.round(Number(contract.minPayoutCents) / 100) : null
+  const revenueSharePct =
+    !isSale && contract.revenueShareBps != null ? Number(contract.revenueShareBps) / 100 : null
 
   return (
     <section className="mx-auto max-w-xl space-y-8">
@@ -74,10 +79,25 @@ export default async function GenerateContractPage({ params }: { params: Promise
                 <dt className="text-muted">النطاق الجغرافي</dt>
                 <dd className="text-foreground">{TERRITORY_AR[contract.territory] ?? contract.territory}</dd>
               </div>
-              {contract.termMonths != null && (
+              {/* Term/percentage/settlement are DISTRIBUTION-only. SALE is a
+                  perpetual buyout with a single lump-sum amount — those fields
+                  don't apply and shouldn't leak onto the review card. */}
+              {!isSale && contract.termMonths != null && (
                 <div className="flex justify-between gap-2">
                   <dt className="text-muted">المدة</dt>
                   <dd className="text-foreground">{termLabel(contract.termMonths as number)}</dd>
+                </div>
+              )}
+              {!isSale && revenueSharePct != null && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted">نسبة الطرف الأول</dt>
+                  <dd className="text-foreground">{revenueSharePct.toFixed(2)}%</dd>
+                </div>
+              )}
+              {isSale && amountEgp != null && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted">مبلغ البيع/التنازل</dt>
+                  <dd className="text-foreground">{amountEgp.toLocaleString('en-US')} ج.م.</dd>
                 </div>
               )}
               <div className="flex justify-between gap-2">
@@ -96,7 +116,7 @@ export default async function GenerateContractPage({ params }: { params: Promise
       </FadeIn>
 
       <FadeIn delay={0.1}>
-        <GenerateContractForm contractId={id} />
+        <GenerateContractForm contractId={id} isSale={isSale} />
       </FadeIn>
     </section>
   )

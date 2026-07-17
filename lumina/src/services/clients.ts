@@ -124,23 +124,48 @@ export async function getClientTree(id: string) {
  */
 async function cascadeSoftDeleteClientChildren(clientId: string, deletedAt: Date, purgeAfter: Date) {
   const data = { deletedAt, purgeAfter }
-  // Contracts + their annexes + those annexes' works + all documents attached
-  // to any of contracts/annexes/folders under this client.
-  await db.masterContract.updateMany({ where: { clientId, deletedAt: null }, data })
-  await db.annex.updateMany({ where: { contract: { clientId }, deletedAt: null }, data })
-  await db.work.updateMany({ where: { annex: { contract: { clientId } }, deletedAt: null }, data })
-  await db.document.updateMany({
-    where: {
-      OR: [
-        { contract: { clientId } },
-        { annex: { contract: { clientId } } },
-        { folder: { clientId } },
-      ],
-      deletedAt: null,
-    },
-    data,
+  // Fetch descendant ids FIRST, then updateMany by id. Prisma's updateMany does
+  // NOT accept nested relation filters (e.g. `where: { annex: { contract: {…} } }`),
+  // which silently produces zero-row updates and leaves works/annexes stranded
+  // — the exact bug reported earlier. Explicit id fetches make the cascade
+  // deterministic and covered by the soft-delete extension consistently.
+  const contracts = await db.masterContract.findMany({
+    where: { clientId, deletedAt: null },
+    select: { id: true },
   })
-  await db.folder.updateMany({ where: { clientId, deletedAt: null }, data })
+  const contractIds = contracts.map((c) => c.id)
+  const annexes = contractIds.length
+    ? await db.annex.findMany({
+        where: { contractId: { in: contractIds }, deletedAt: null },
+        select: { id: true },
+      })
+    : []
+  const annexIds = annexes.map((a) => a.id)
+  const folders = await db.folder.findMany({
+    where: { clientId, deletedAt: null },
+    select: { id: true },
+  })
+  const folderIds = folders.map((f) => f.id)
+
+  if (contractIds.length) await db.masterContract.updateMany({ where: { id: { in: contractIds } }, data })
+  if (annexIds.length) await db.annex.updateMany({ where: { id: { in: annexIds } }, data })
+  if (annexIds.length) {
+    await db.work.updateMany({
+      where: { annexId: { in: annexIds }, deletedAt: null },
+      data,
+    })
+  }
+  const docWhere = {
+    OR: [
+      contractIds.length ? { contractId: { in: contractIds } } : undefined,
+      annexIds.length ? { annexId: { in: annexIds } } : undefined,
+      folderIds.length ? { folderId: { in: folderIds } } : undefined,
+    ].filter(Boolean) as Array<Record<string, unknown>>,
+  }
+  if (docWhere.OR.length) {
+    await db.document.updateMany({ where: { ...docWhere, deletedAt: null }, data })
+  }
+  if (folderIds.length) await db.folder.updateMany({ where: { id: { in: folderIds } }, data })
   await db.release.updateMany({ where: { clientId, deletedAt: null }, data })
 }
 
@@ -197,21 +222,27 @@ export async function softDeleteClient(id: string) {
 export async function hardDeleteClient(id: string) {
   await softDeleteClient(id)
   const now = new Date()
-  // Also mark all cascaded children as purged so they're immediately gone.
-  await db.masterContract.updateMany({ where: { clientId: id }, data: { purgedAt: now } })
-  await db.annex.updateMany({ where: { contract: { clientId: id } }, data: { purgedAt: now } })
-  await db.work.updateMany({ where: { annex: { contract: { clientId: id } } }, data: { purgedAt: now } })
-  await db.document.updateMany({
-    where: {
-      OR: [
-        { contract: { clientId: id } },
-        { annex: { contract: { clientId: id } } },
-        { folder: { clientId: id } },
-      ],
-    },
-    data: { purgedAt: now },
-  })
-  await db.folder.updateMany({ where: { clientId: id }, data: { purgedAt: now } })
+  // Same two-step id fetch as the soft-delete cascade so nested relation
+  // filters don't silently no-op the updateMany.
+  const contracts = await db.masterContract.findMany({ where: { clientId: id }, select: { id: true } })
+  const contractIds = contracts.map((c) => c.id)
+  const annexes = contractIds.length
+    ? await db.annex.findMany({ where: { contractId: { in: contractIds } }, select: { id: true } })
+    : []
+  const annexIds = annexes.map((a) => a.id)
+  const folders = await db.folder.findMany({ where: { clientId: id }, select: { id: true } })
+  const folderIds = folders.map((f) => f.id)
+
+  if (contractIds.length) await db.masterContract.updateMany({ where: { id: { in: contractIds } }, data: { purgedAt: now } })
+  if (annexIds.length) await db.annex.updateMany({ where: { id: { in: annexIds } }, data: { purgedAt: now } })
+  if (annexIds.length) await db.work.updateMany({ where: { annexId: { in: annexIds } }, data: { purgedAt: now } })
+  const docOr = [
+    contractIds.length ? { contractId: { in: contractIds } } : undefined,
+    annexIds.length ? { annexId: { in: annexIds } } : undefined,
+    folderIds.length ? { folderId: { in: folderIds } } : undefined,
+  ].filter(Boolean) as Array<Record<string, unknown>>
+  if (docOr.length) await db.document.updateMany({ where: { OR: docOr }, data: { purgedAt: now } })
+  if (folderIds.length) await db.folder.updateMany({ where: { id: { in: folderIds } }, data: { purgedAt: now } })
   await db.release.updateMany({ where: { clientId: id }, data: { purgedAt: now } })
 
   // Free the nationalId for reuse: suffix the purged client's NID so the
