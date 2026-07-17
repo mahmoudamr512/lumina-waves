@@ -1,7 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { generateContractPdf } from '@/services/documents'
+import {
+  generateContractPdf,
+  generateContractTafweedPdf,
+  generateContractAndTafweedPdf,
+} from '@/services/documents'
 import { AuthzError } from '@/lib/errors'
 
 export interface GenerateContractState {
@@ -11,8 +15,8 @@ export interface GenerateContractState {
 
 /**
  * Server Action: generate a Draft PDF for the given contract.
- * Returns the new Document id on success so the page can show a download link.
- * On failure, returns a friendly Arabic message — never a raw stack trace.
+ * `variant` picks between the contract only, the SALE tafweed only, or the
+ * combined SALE contract + tafweed (SALE contracts only for the last two).
  */
 export async function generateContract(
   contractId: string,
@@ -20,11 +24,18 @@ export async function generateContract(
   _prev: GenerateContractState,
   formData: FormData,
 ): Promise<GenerateContractState> {
-  // An unchecked HTML checkbox is OMITTED from FormData entirely — presence
-  // means checked. Anything else (missing / other) is treated as unchecked.
+  // Unchecked HTML checkboxes are OMITTED from FormData — presence = checked.
   const withSeal = formData.get('withSeal') === 'true'
+  const variant = String(formData.get('variant') ?? 'contract').trim() as 'contract' | 'tafweed' | 'combined'
   try {
-    const doc = await generateContractPdf(contractId, { withSeal })
+    let doc
+    if (variant === 'tafweed') {
+      doc = await generateContractTafweedPdf(contractId, { withSeal })
+    } else if (variant === 'combined') {
+      doc = await generateContractAndTafweedPdf(contractId, { withSeal })
+    } else {
+      doc = await generateContractPdf(contractId, { withSeal })
+    }
     revalidatePath(`/contracts/${contractId}/generate`)
     return { error: null, docId: doc.id }
   } catch (err) {
@@ -33,9 +44,8 @@ export async function generateContract(
       return { error: 'ليس لديك صلاحية لإنشاء مستند العقد. هذا الإجراء متاح للمستخدمين من فئة المدير والقانونيين فقط.' }
     }
     const msg = err instanceof Error ? err.message : ''
-    if (msg === 'contract not found') {
-      return { error: 'لم يُعثر على العقد المطلوب.' }
-    }
+    if (msg === 'contract not found') return { error: 'لم يُعثر على العقد المطلوب.' }
+    if (msg.includes('SALE')) return { error: 'التقرير والتفويض متاح فقط لعقود البيع.' }
     return { error: 'تعذّر إنشاء المستند. يُرجى المحاولة مرة أخرى.' }
   }
 }

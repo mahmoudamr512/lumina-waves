@@ -77,12 +77,18 @@ export async function addAnnex(
       const { createWork } = await import('@/services/works')
       const { db } = await import('@/lib/db')
       const buf = Buffer.from(await file.arrayBuffer())
-      const { headers, rows } = parseWorksSpreadsheet(buf)
-      // Persist the user's Excel column headers on the annex so the generated
-      // PDF's works table renders them verbatim (rather than defaulting to
-      // «الأغنية | المطرب | المؤلف | الملحن | الموزع»).
-      if (headers.length) {
-        await db.annex.update({ where: { id: annexId }, data: { worksHeaders: headers } })
+      const { headers, rows, raw } = parseWorksSpreadsheet(buf)
+      // Persist the user's Excel column headers AND the raw grid on the annex
+      // so the generated PDF renders the whole Excel verbatim — arbitrary
+      // columns, not just the derived performer/title pair.
+      if (headers.length || raw.length) {
+        await db.annex.update({
+          where: { id: annexId },
+          data: {
+            worksHeaders: headers,
+            worksTable: headers.length || raw.length ? { headers, rows: raw } : undefined,
+          },
+        })
       }
       for (const r of rows) {
         await createWork({

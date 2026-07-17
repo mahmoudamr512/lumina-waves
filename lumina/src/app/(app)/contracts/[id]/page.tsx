@@ -86,13 +86,16 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                   {TERRITORY_AR[contract.territory as string] ?? String(contract.territory)}
                 </dd>
               </div>
-              {contract.termMonths != null && (
+              {/* Term / expiry / revenue-share are DISTRIBUTION-only. A SALE
+                  contract is a perpetual buyout; those fields don't apply
+                  even if legacy rows happen to have non-null values. */}
+              {contract.grantType !== 'SALE' && contract.termMonths != null && (
                 <div className="flex gap-1.5">
                   <dt className="text-muted">المدة:</dt>
                   <dd className="text-foreground">{termLabel(contract.termMonths as number)}</dd>
                 </div>
               )}
-              {contract.expiresAt != null && (
+              {contract.grantType !== 'SALE' && contract.expiresAt != null && (
                 <div className="flex gap-1.5">
                   <dt className="text-muted">تاريخ الانتهاء:</dt>
                   <dd className="text-foreground" data-testid="contract-expiry">
@@ -104,7 +107,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                   </dd>
                 </div>
               )}
-              {contract.revenueShareBps != null && (
+              {contract.grantType !== 'SALE' && contract.revenueShareBps != null && (
                 <div className="flex gap-1.5">
                   <dt className="text-muted">الحصة:</dt>
                   <dd className="text-foreground">{((contract.revenueShareBps as number) / 100).toFixed(2)}%</dd>

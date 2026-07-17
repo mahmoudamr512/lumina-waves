@@ -5,43 +5,53 @@ export type ParsedWorksSheet = {
   /** Column headers taken from the file's first row (used as-is in the PDF).
    * Empty array = no header row detected (defaults will be used by the template). */
   headers: string[]
+  /** Derived performer/title pairs (col 0 = performer, col 1 = title) used to
+   * create Work records with a PERFORMER credit. Rows without a title are dropped. */
   rows: ImportedWork[]
+  /** All columns, verbatim, for every data row (header row excluded). Used to
+   * render the WHOLE Excel grid in the PDF, not just the derived 2 columns. */
+  raw: string[][]
 }
 
 /**
  * Parse a spreadsheet buffer (.xlsx or .csv) into a list of imported works +
- * the header row so callers can preserve the user's exact column names in the
- * generated PDF. Column convention: Col A = performer, Col B = title. A header
- * row is auto-detected when the first row contains the words «اسم» or «name».
+ * the header row + the raw grid so callers can preserve the user's exact column
+ * names AND all columns in the generated PDF. A header row is auto-detected
+ * when the first row contains the words «اسم» or «name».
  *
- * Never throws — bad data returns {headers: [], rows: []}. Rows with an empty
- * title are dropped (they can't be rendered in the PDF's works table).
+ * Never throws — bad data returns {headers: [], rows: [], raw: []}. Rows with
+ * an empty title are dropped from `rows` (but kept in `raw` if they have data
+ * in other columns).
  */
 export function parseWorksSpreadsheet(buf: Buffer): ParsedWorksSheet {
   let wb: XLSX.WorkBook
   try {
     wb = XLSX.read(buf, { type: 'buffer' })
   } catch {
-    return { headers: [], rows: [] }
+    return { headers: [], rows: [], raw: [] }
   }
   const sheetName = wb.SheetNames[0]
-  if (!sheetName) return { headers: [], rows: [] }
+  if (!sheetName) return { headers: [], rows: [], raw: [] }
   const sheet = wb.Sheets[sheetName]
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: '' })
-  if (!rows.length) return { headers: [], rows: [] }
+  const gridRaw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: '' })
+  if (!gridRaw.length) return { headers: [], rows: [], raw: [] }
 
-  const first = rows[0]?.map((c) => String(c ?? '').trim()) ?? []
+  // Coerce every cell to a trimmed string so JSON storage + HTML rendering are safe.
+  const grid: string[][] = gridRaw.map((row) => row.map((c) => String(c ?? '').trim()))
+  const first = grid[0] ?? []
   const looksLikeHeader =
     first.some((c) => /اسم|name/i.test(c)) && !/[0-9]{5}/.test(first.join(''))
   const headers = looksLikeHeader ? first.filter(Boolean) : []
-  const dataRows = looksLikeHeader ? rows.slice(1) : rows
+  const raw = looksLikeHeader ? grid.slice(1) : grid
+  // Drop rows that are entirely empty (e.g. blank separator lines).
+  const rawTrimmed = raw.filter((row) => row.some((c) => c.length > 0))
 
-  const out: ImportedWork[] = []
-  for (const row of dataRows) {
-    const performer = String(row[0] ?? '').trim()
-    const title = String(row[1] ?? '').trim()
+  const rows: ImportedWork[] = []
+  for (const row of rawTrimmed) {
+    const performer = row[0] ?? ''
+    const title = row[1] ?? ''
     if (!title) continue
-    out.push({ performer, title })
+    rows.push({ performer, title })
   }
-  return { headers, rows: out }
+  return { headers, rows, raw: rawTrimmed }
 }
