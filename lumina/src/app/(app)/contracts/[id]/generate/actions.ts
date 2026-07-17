@@ -45,7 +45,7 @@ export async function generateContract(
     }
     const msg = err instanceof Error ? err.message : ''
     if (msg === 'contract not found') return { error: 'لم يُعثر على العقد المطلوب.' }
-    if (msg.includes('SALE')) return { error: 'التقرير والتفويض متاح فقط لعقود البيع.' }
+    if (msg.includes('SALE')) return { error: 'الإقرار متاح فقط لعقود البيع.' }
     return { error: 'تعذّر إنشاء المستند. يُرجى المحاولة مرة أخرى.' }
   }
 }

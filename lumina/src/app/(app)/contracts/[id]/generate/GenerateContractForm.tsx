@@ -68,14 +68,14 @@ export function GenerateContractForm({ contractId, isSale = false }: Props) {
             <label className="flex cursor-pointer items-start gap-3 rounded-lg p-2 text-sm transition hover:bg-white/5">
               <input type="radio" name="variant" value="tafweed" className="mt-0.5 h-4 w-4 accent-gold-400" />
               <span>
-                <span className="block text-foreground">التقرير والتفويض فقط</span>
+                <span className="block text-foreground">الإقرار فقط</span>
                 <span className="block text-xs text-muted">إقرار الطرف الأول ببيع وتنازل حقوق المصنفات.</span>
               </span>
             </label>
             <label className="flex cursor-pointer items-start gap-3 rounded-lg p-2 text-sm transition hover:bg-white/5">
               <input type="radio" name="variant" value="combined" className="mt-0.5 h-4 w-4 accent-gold-400" />
               <span>
-                <span className="block text-foreground">العقد + التقرير والتفويض (ملف واحد)</span>
+                <span className="block text-foreground">العقد + الإقرار (ملف واحد)</span>
                 <span className="block text-xs text-muted">صفحة العقد وصفحة الإقرار في ملف PDF واحد.</span>
               </span>
             </label>
