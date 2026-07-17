@@ -539,7 +539,6 @@ function saleTafweedBodyHtml(d: SaleTafweedData): string {
   // rights-transfer attestation for signature — the price lives on the sale
   // contract itself, not in the artist's ekrar.
   return `
-    <h2 class="lw-clause-title" style="text-align:center;margin:1.2em 0 1em">إقرار</h2>
     <p style="text-align:end;margin:0 0 1em"><strong>تحريرًا في: ${dateAr}</strong></p>
     <p>أُقرّ أنا / ${name}${stage} — المقيم في: ${addr}، وأحمل رقم قومي ${nid}، بأنني المالك القانوني لكامل الحقوق المالية وحقوق الاستغلال الحصري للمصنفات الفنية المذكورة أدناه.</p>
     <p>وأُقرّ بأنني قد <strong>بعتُ وتنازلتُ</strong> نهائيًا وباتًّا للسادة/ ${escapeHtml(COMPANY.nameAr)} — ${escapeHtml(COMPANY.legalDescAr)} — عن كامل الحقوق المالية وحقوق الاستغلال الحصري لتلك المصنفات، بكافة طرق الاستغلال ووسائله المنصوص عليها في القانون رقم ٨٢ لسنة ٢٠٠٢ بشأن حماية حقوق الملكية الفكرية، ومنها على سبيل المثال لا الحصر: ${coverage}. ويصبح للطرف الثاني وحده الحق الاستئثاري في استغلال هذه المصنفات والترخيص بها أو المنع منها بأي وجه من الوجوه ودون حدّ زمني.</p>
@@ -556,7 +555,7 @@ function saleTafweedBodyHtml(d: SaleTafweedData): string {
 /** Standalone SALE ekrar («إقرار» — permanent rights-transfer attestation). */
 export function renderSaleTafweed(d: SaleTafweedData, _opts: { withSeal?: boolean } = {}): string {
   return layout({
-    titleAr: fixParens('إقرار — بيع وتنازل عن مصنفات فنية'),
+    titleAr: fixParens('إقرار'),
     bodyHtml: fixParens(saleTafweedBodyHtml(d)),
     letterhead: letterheadHtml(),
     footer: footerHtml(),
