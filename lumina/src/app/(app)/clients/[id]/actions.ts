@@ -110,8 +110,12 @@ export async function addAnnex(
   // trigger generation each time. Failure here NEVER blocks annex creation.
   try {
     const { generateAnnexPdf, generateAnnexTafweedPdf } = await import('@/services/documents')
-    await generateAnnexPdf(annexId)
-    await generateAnnexTafweedPdf(annexId)
+    const { randomUUID } = await import('node:crypto')
+    // Same bundleId links the annex draft + its ekrar so the UI can group
+    // them and future signed uploads can rejoin the same bundle.
+    const bundleId = randomUUID()
+    await generateAnnexPdf(annexId, { bundleId })
+    await generateAnnexTafweedPdf(annexId, { bundleId })
   } catch (err) {
     console.warn('[addAnnex] auto PDF generation failed (best-effort):', err)
   }
