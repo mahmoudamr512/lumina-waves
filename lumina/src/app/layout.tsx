@@ -49,7 +49,7 @@ export default async function RootLayout({
     <html
       lang={locale}
       dir={dirFor(locale)}
-      className={`${cinzel.variable} ${tajawal.variable} h-full antialiased`}
+      className={`${cinzel.variable} ${tajawal.variable} h-full antialiased scheme-dark`}
     >
       <body className="min-h-full bg-ink text-foreground">
         <RegisterSW />

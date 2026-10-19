@@ -1,6 +1,7 @@
 export { Button, buttonClasses, type ButtonProps } from './Button'
 export { Card, CardHeader, CardBody, CardFooter } from './Card'
 export { Field, Input, Textarea, Select, FileInput } from './Field'
+export { DateInput } from './DateInput'
 export { Badge, statusVariant } from './Badge'
 export { Breadcrumb, type Crumb } from './Breadcrumb'
 export { EmptyState } from './EmptyState'
