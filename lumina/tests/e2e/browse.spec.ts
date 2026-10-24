@@ -38,7 +38,7 @@ test('within-client search filters across the client and shows no-results', asyn
 
   // Add a contract (default grant type is distribution → "توزيع").
   await page.getByRole('link', { name: 'إضافة عقد' }).first().click()
-  await page.getByText('التوزيع الرقمي والبث التدفقي').click()
+  await page.getByLabel('القنوات الرقمية فقط').check()
   await page.getByRole('button', { name: 'حفظ العقد' }).click()
   await expect(page).toHaveURL(/\/contracts\/[a-z0-9]+$/i, { timeout: 20_000 })
 

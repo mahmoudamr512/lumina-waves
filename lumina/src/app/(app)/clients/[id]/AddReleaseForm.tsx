@@ -1,7 +1,7 @@
 'use client'
 
 import { addRelease, type ReleaseState } from './actions'
-import { Button, Dialog, Field, Input, Select, buttonClasses, IconPlus } from '@/components/ui'
+import { Button, DateInput, Dialog, Field, Input, Select, buttonClasses, IconPlus } from '@/components/ui'
 import { RELEASE_TYPE_AR } from '@/lib/labels'
 import { useQuickAdd } from './_forms/useQuickAdd'
 
@@ -32,7 +32,7 @@ export default function AddReleaseForm({ clientId }: { clientId: string }) {
             </Select>
           </Field>
           <Field label="تاريخ الإصدار (اختياري)" htmlFor="release-date">
-            <Input id="release-date" name="releaseDate" type="date" />
+            <DateInput id="release-date" name="releaseDate" />
           </Field>
           {state.error && (
             <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">

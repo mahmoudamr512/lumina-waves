@@ -33,7 +33,7 @@ test('client activity: post, edit, and delete a comment', async ({ page }) => {
   await expect(page.getByText('(عُدّل)')).toBeVisible({ timeout: 20_000 })
 
   // Delete it.
-  await page.getByRole('button', { name: 'حذف' }).first().click()
+  await page.getByRole('button', { name: 'حذف', exact: true }).first().click()
   await expect(page.getByText(body)).toHaveCount(0, { timeout: 20_000 })
 })
 

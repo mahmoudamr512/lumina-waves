@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { addContract, type AddContractState } from './actions'
-import { Button, Field, Input, Select, buttonClasses, useToast } from '@/components/ui'
+import { Button, DateInput, Field, Input, Select, buttonClasses, useToast } from '@/components/ui'
 
 const TERRITORY_OPTIONS = [
   { value: 'EGYPT', label: 'جمهورية مصر العربية' },
@@ -132,7 +132,7 @@ export default function NewContractForm({ clientId, grantTypes, coverageModes }:
       )}
 
       <Field label="تاريخ التوقيع" htmlFor="signedDate">
-        <Input id="signedDate" name="signedDate" type="date" />
+        <DateInput id="signedDate" name="signedDate" />
       </Field>
 
       {/* Coverage mode (radio group) — controls which paragraph the granting clause renders. */}

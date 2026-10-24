@@ -13,8 +13,8 @@ test('contract: create licence contract → contract detail → generate PDF', a
   await page.getByRole('link', { name: 'إضافة عقد' }).first().click()
   await expect(page).toHaveURL(/\/contracts\/new$/, { timeout: 20_000 })
 
-  // Default grant type is a licence — pick coverage + save.
-  await page.getByText('التوزيع الرقمي والبث التدفقي').click()
+  // Default grant type is distribution — pick a coverage mode + save.
+  await page.getByLabel('القنوات الرقمية فقط').check()
   await page.getByRole('button', { name: 'حفظ العقد' }).click()
 
   // Saving now lands on the focused contract detail page.
@@ -24,7 +24,7 @@ test('contract: create licence contract → contract detail → generate PDF', a
   await page.getByRole('link', { name: 'إنشاء PDF' }).first().click()
   await expect(page).toHaveURL(/\/generate$/, { timeout: 20_000 })
   await page.getByRole('button', { name: 'إنشاء مسودة العقد' }).click()
-  await expect(page.getByRole('link', { name: /تحميل مسودة PDF/ })).toBeVisible({ timeout: 40_000 })
+  await expect(page.getByRole('link', { name: /تحميل العقد PDF/ })).toBeVisible({ timeout: 40_000 })
 })
 
 test('sale contract: choose بيع وتنازل → buyout amount field appears → save', async ({ page }) => {
@@ -39,7 +39,7 @@ test('sale contract: choose بيع وتنازل → buyout amount field appears 
   await expect(page.getByLabel('مبلغ البيع/التنازل', { exact: false })).toBeVisible()
   await expect(page.locator('input[name=revenueSharePct]')).toHaveCount(0)
   await page.getByLabel('مبلغ البيع/التنازل', { exact: false }).fill('10000')
-  await page.getByText('التوزيع الرقمي والبث التدفقي').click()
+  await page.getByLabel('القنوات الرقمية فقط').check()
   await page.getByRole('button', { name: 'حفظ العقد' }).click()
 
   // Lands on the contract detail page; its header shows the grant label.
