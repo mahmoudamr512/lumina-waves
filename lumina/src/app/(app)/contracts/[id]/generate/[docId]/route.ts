@@ -60,7 +60,7 @@ export async function GET(
   return new Response(arrayBuf, {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${doc.filename}"`,
+      'Content-Disposition': `attachment; filename="${doc.filename.replace(/[^\x20-\x7e]|"/g, '_')}"; filename*=UTF-8''${encodeURIComponent(doc.filename)}`,
       'Content-Length': byteLength.toString(),
       // Prevent caching of sensitive documents
       'Cache-Control': 'no-store',

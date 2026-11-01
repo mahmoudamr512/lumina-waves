@@ -25,6 +25,14 @@ const STORAGE = process.env.STORAGE_DIR ?? './.storage'
 // entirely excluded. Fail-closed: any role not in this list is rejected.
 const SENSITIVE_DOC_ROLES: string[] = ['ADMIN', 'LEGAL']
 
+/** Display/download name: `{legal name} - {type}.pdf` (filesystem-unsafe chars stripped). */
+const docName = (person: string, type: string) =>
+  `${person.replace(/[\\/:*?"<>|\x00-\x1f]/g, '').trim()} - ${type}.pdf`
+
+/** 1-based ordinal of a contract among its client's live contracts (by creation). */
+const contractOrdinal = (k: { clientId: string; createdAt: Date }) =>
+  db.masterContract.count({ where: { clientId: k.clientId, deletedAt: null, createdAt: { lte: k.createdAt } } })
+
 export async function generateContractPdf(contractId: string, opts: { withSeal?: boolean; bundleId?: string } = {}) {
   // Gate 1: caller must have `create` permission on Document (standard RBAC).
   const u = await requireUser('create', 'Document')
@@ -99,10 +107,10 @@ export async function generateContractPdf(contractId: string, opts: { withSeal?:
 
   const buf = await renderPdf(html)
 
-  const filename = `contract-${k.id}-draft.pdf`
+  const filename = docName(k.client.legalName, `Contract ${await contractOrdinal(k)}`)
   const storageDir = path.resolve(STORAGE)
   await mkdir(storageDir, { recursive: true })
-  const storagePath = path.join(storageDir, filename)
+  const storagePath = path.join(storageDir, `${randomUUID()}.pdf`)
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
@@ -184,10 +192,10 @@ export async function generateAnnexPdf(annexId: string, opts: { withSeal?: boole
   }, { withSeal: opts.withSeal ?? true })
 
   const buf = await renderPdf(html)
-  const filename = `annex-${a.id}-draft.pdf`
+  const filename = docName(client.legalName, `Annex ${a.number}`)
   const storageDir = path.resolve(STORAGE)
   await mkdir(storageDir, { recursive: true })
-  const storagePath = path.join(storageDir, filename)
+  const storagePath = path.join(storageDir, `${randomUUID()}.pdf`)
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
@@ -274,11 +282,13 @@ async function generateAnnexAuxiliaryPdf(
   const withSeal = opts.withSeal ?? true
   const html = variant === 'tafweed' ? renderTafweed(data, { withSeal }) : renderAnnexAndTafweed(data, { withSeal })
   const buf = await renderPdf(html)
-  const suffix = variant === 'tafweed' ? 'tafweed' : 'annex-and-tafweed'
-  const filename = `annex-${a.id}-${suffix}.pdf`
+  const filename = docName(
+    client.legalName,
+    variant === 'tafweed' ? `Tafweed ${a.number}` : `Annex ${a.number} + Tafweed ${a.number}`,
+  )
   const storageDir = path.resolve(STORAGE)
   await mkdir(storageDir, { recursive: true })
-  const storagePath = path.join(storageDir, filename)
+  const storagePath = path.join(storageDir, `${randomUUID()}.pdf`)
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
@@ -384,10 +394,10 @@ export async function generateContractTafweedPdf(contractId: string, opts: { wit
   )
 
   const buf = await renderPdf(html)
-  const filename = `contract-${k.id}-tafweed.pdf`
+  const filename = docName(k.client.legalName, `Ekrar ${await contractOrdinal(k)}`)
   const storageDir = path.resolve(STORAGE)
   await mkdir(storageDir, { recursive: true })
-  const storagePath = path.join(storageDir, filename)
+  const storagePath = path.join(storageDir, `${randomUUID()}.pdf`)
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
@@ -491,10 +501,11 @@ export async function generateContractAndTafweedPdf(contractId: string, opts: { 
 
   const html = renderContractAndSaleTafweed(contractData, tafweedData, { withSeal: opts.withSeal ?? true })
   const buf = await renderPdf(html)
-  const filename = `contract-${k.id}-contract-and-tafweed.pdf`
+  const n = await contractOrdinal(k)
+  const filename = docName(k.client.legalName, `Contract ${n} + Ekrar ${n}`)
   const storageDir = path.resolve(STORAGE)
   await mkdir(storageDir, { recursive: true })
-  const storagePath = path.join(storageDir, filename)
+  const storagePath = path.join(storageDir, `${randomUUID()}.pdf`)
   await writeFile(storagePath, buf)
 
   const doc = await db.document.create({
