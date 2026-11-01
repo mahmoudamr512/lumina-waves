@@ -33,7 +33,7 @@ export function DeleteAnnexButton({ annexId, annexNumber }: { annexId: string; a
 
   return (
     <>
-      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
+      <Button type="button" variant="danger" size="sm" onClick={() => setOpen(true)}>
         حذف الملحق
       </Button>
 
