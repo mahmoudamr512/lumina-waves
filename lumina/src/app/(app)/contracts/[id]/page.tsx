@@ -25,6 +25,7 @@ import {
 import { TERRITORY_AR, CREDIT_ROLE_AR, WORK_STATUS_AR, DOC_STATUS_AR, termLabel, formatDateAr, daysFromNow } from '@/lib/labels'
 import AddAnnexButton from '@/app/(app)/clients/[id]/AddAnnexButton'
 import { DeleteContractButton } from './DeleteContractButton'
+import { DeleteAnnexButton } from './DeleteAnnexButton'
 import GenerateAnnexButton from '@/app/(app)/clients/[id]/GenerateAnnexButton'
 import AttachDocumentForm from '@/app/(app)/clients/[id]/AttachDocumentForm'
 import { ActivityPanel } from '@/components/activity/ActivityPanel'
@@ -202,6 +203,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                       <IconPlus className="h-4 w-4" /> إضافة عمل
                     </Link>
                   )}
+                  {role === 'ADMIN' && <DeleteAnnexButton annexId={String(annex.id)} annexNumber={annex.number} />}
                 </div>
               </CardHeader>
               <CardBody className="space-y-4">

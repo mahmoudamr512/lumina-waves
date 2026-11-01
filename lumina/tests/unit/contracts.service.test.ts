@@ -12,7 +12,7 @@ vi.mock('@/lib/queue', () => ({
   },
 }))
 import { createContract, listContracts } from '@/services/contracts'
-import { createAnnex } from '@/services/annexes'
+import { createAnnex, softDeleteAnnex } from '@/services/annexes'
 import { createClient } from '@/services/clients'
 import { db } from '@/lib/db'
 
@@ -75,4 +75,27 @@ test('listContracts returns contracts with client info', async () => {
   const found = all.find((k) => k.clientId === c.id)
   expect(found).toBeDefined()
   expect(found?.client.legalName).toBe('ListContracts Test')
+})
+
+test('softDeleteAnnex trashes annex + its works, keeps contract, never reuses number', async () => {
+  const c = await createClient({ legalName: 'DelAnnex', nationalId: `30000003${RUN}` })
+  const k = await createContract({
+    clientId: c.id,
+    grantType: 'DISTRIBUTION',
+    territory: 'EGYPT',
+    termMonths: 12,
+    coverageMode: 'RBT_AND_DIGITAL',
+  })
+  const a1 = await createAnnex({ contractId: k.id, annexDate: new Date() })
+  const a2 = await createAnnex({ contractId: k.id, annexDate: new Date() })
+  const w = await db.work.create({ data: { title: 'T', annexId: a2.id } })
+
+  await softDeleteAnnex(a2.id)
+
+  expect(await db.annex.findUnique({ where: { id: a2.id } })).toBeNull()
+  expect(await db.work.findUnique({ where: { id: w.id } })).toBeNull()
+  expect(await db.annex.findUnique({ where: { id: a1.id } })).not.toBeNull()
+  expect(await db.masterContract.findUnique({ where: { id: k.id } })).not.toBeNull()
+  const a3 = await createAnnex({ contractId: k.id, annexDate: new Date() })
+  expect(a3.number).toBe(3)
 })
