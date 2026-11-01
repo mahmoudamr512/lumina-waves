@@ -69,7 +69,9 @@ test('generateContractPdf creates a DRAFT document', async () => {
 
   expect(doc.status).toBe('DRAFT')
   expect(doc.contractId).toBe(k.id)
-  expect(doc.filename).toMatch(/contract-.+-draft\.pdf/)
+  expect(doc.filename).toMatch(/ - Contract 1\.pdf$/)
+  // On-disk path is a random id, never the (possibly colliding) display name.
+  expect(doc.storagePath).not.toContain(doc.filename)
 })
 
 test('generateAnnexPdf creates a prefilled DRAFT attached to the annex', async () => {
@@ -89,7 +91,7 @@ test('generateAnnexPdf creates a prefilled DRAFT attached to the annex', async (
 
   expect(doc.status).toBe('DRAFT')
   expect(doc.annexId).toBe(annex.id)
-  expect(doc.filename).toMatch(/annex-.+-draft\.pdf/)
+  expect(doc.filename).toBe(`Annex Gen - Annex ${annex.number}.pdf`)
   // The annex's live work is prefilled into the template.
   const passed = renderAnnexSpy.mock.calls[0][0]
   expect(passed.works?.some((w) => w.titleAr === 'أغنية الاختبار')).toBe(true)

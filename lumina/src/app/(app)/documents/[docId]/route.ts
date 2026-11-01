@@ -83,7 +83,6 @@ export async function GET(
   }
 
   const contentType = contentTypeFor(doc.filename)
-  const safeFilename = encodeURIComponent(doc.filename).replace(/%20/g, '+')
 
   // Stream the file using Node.js ReadStream → Web ReadableStream
   const nodeStream = createReadStream(real)
@@ -104,7 +103,7 @@ export async function GET(
     status: 200,
     headers: {
       'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${safeFilename}"`,
+      'Content-Disposition': `attachment; filename="${doc.filename.replace(/[^\x20-\x7e]|"/g, '_')}"; filename*=UTF-8''${encodeURIComponent(doc.filename)}`,
       'Cache-Control': 'no-store',
     },
   })

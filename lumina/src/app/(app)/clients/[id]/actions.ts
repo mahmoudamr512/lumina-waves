@@ -54,6 +54,8 @@ export async function addAnnex(
 ): Promise<AnnexState> {
   const contractId = String(formData.get('contractId') ?? '').trim()
   const clientId = String(formData.get('clientId') ?? '').trim()
+  // Unchecked HTML checkboxes are OMITTED from FormData — presence = checked.
+  const withSeal = formData.get('withSeal') === 'true'
 
   if (!contractId) return { error: 'معرّف العقد مفقود.' }
 
@@ -114,8 +116,8 @@ export async function addAnnex(
     // Same bundleId links the annex draft + its ekrar so the UI can group
     // them and future signed uploads can rejoin the same bundle.
     const bundleId = randomUUID()
-    await generateAnnexPdf(annexId, { bundleId })
-    await generateAnnexTafweedPdf(annexId, { bundleId })
+    await generateAnnexPdf(annexId, { bundleId, withSeal })
+    await generateAnnexTafweedPdf(annexId, { bundleId, withSeal })
   } catch (err) {
     console.warn('[addAnnex] auto PDF generation failed (best-effort):', err)
   }

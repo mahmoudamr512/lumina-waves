@@ -58,6 +58,16 @@ export default function AddAnnexButton({ contractId, clientId }: { contractId: s
             />
           </Field>
 
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-line bg-ink-soft p-3 text-sm">
+            <input type="checkbox" name="withSeal" value="true" defaultChecked className="h-4 w-4 accent-gold-400" />
+            <span>
+              <span className="block text-foreground">إضافة ختم الشركة</span>
+              <span className="block text-xs text-muted">
+                عند التفعيل، يظهر ختم لومينا ويفز أعلى توقيع الطرف الثاني. أزل العلامة للحصول على مسودة بدون ختم.
+              </span>
+            </span>
+          </label>
+
           {state.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}
 
           <div className="flex items-center gap-2">
