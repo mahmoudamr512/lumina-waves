@@ -47,7 +47,7 @@ export default function AddAnnexButton({ contractId, clientId }: { contractId: s
           <Field
             label="قائمة المصنفات (Excel أو CSV) — اختياري"
             htmlFor="worksFile"
-            hint="عمودان: (1) اسم المؤدّي، (2) اسم المصنّف. يمكن تركه فارغًا وإضافة المصنفات لاحقًا."
+            hint="الصف الأول عناوين الأعمدة (تظهر في العقد كما هي)، ثم البيانات: (1) اسم المؤدّي، (2) اسم المصنّف. يمكن تركه فارغًا وإضافة المصنفات لاحقًا."
           >
             <input
               id="worksFile"

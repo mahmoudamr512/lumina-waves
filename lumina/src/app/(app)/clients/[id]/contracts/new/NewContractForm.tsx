@@ -180,7 +180,7 @@ export default function NewContractForm({ clientId, grantTypes, coverageModes }:
         <Field
           label="قائمة المصنفات المُشتراة (Excel أو CSV)"
           htmlFor="worksFile"
-          hint="عمودان: (1) اسم المؤدّي، (2) اسم المصنّف. يتم إنشاء ملحق تلقائيًا يحتوي على هذه المصنفات."
+          hint="الصف الأول عناوين الأعمدة (تظهر في العقد كما هي)، ثم البيانات: (1) اسم المؤدّي، (2) اسم المصنّف. يتم إنشاء ملحق تلقائيًا يحتوي على هذه المصنفات."
         >
           <input
             id="worksFile"

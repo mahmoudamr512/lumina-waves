@@ -2,8 +2,7 @@ import * as XLSX from 'xlsx'
 
 export type ImportedWork = { performer: string; title: string }
 export type ParsedWorksSheet = {
-  /** Column headers taken from the file's first row (used as-is in the PDF).
-   * Empty array = no header row detected (defaults will be used by the template). */
+  /** Column headers: the file's first row, verbatim (used as-is in the PDF). */
   headers: string[]
   /** Derived performer/title pairs (col 0 = performer, col 1 = title) used to
    * create Work records with a PERFORMER credit. Rows without a title are dropped. */
@@ -16,8 +15,8 @@ export type ParsedWorksSheet = {
 /**
  * Parse a spreadsheet buffer (.xlsx or .csv) into a list of imported works +
  * the header row + the raw grid so callers can preserve the user's exact column
- * names AND all columns in the generated PDF. A header row is auto-detected
- * when the first row contains the words «اسم» or «name».
+ * names AND all columns in the generated PDF. The first row is always treated
+ * as the header row.
  *
  * Never throws — bad data returns {headers: [], rows: [], raw: []}. Rows with
  * an empty title are dropped from `rows` (but kept in `raw` if they have data
@@ -38,13 +37,12 @@ export function parseWorksSpreadsheet(buf: Buffer): ParsedWorksSheet {
 
   // Coerce every cell to a trimmed string so JSON storage + HTML rendering are safe.
   const grid: string[][] = gridRaw.map((row) => row.map((c) => String(c ?? '').trim()))
-  const first = grid[0] ?? []
-  const looksLikeHeader =
-    first.some((c) => /اسم|name/i.test(c)) && !/[0-9]{5}/.test(first.join(''))
-  const headers = looksLikeHeader ? first.filter(Boolean) : []
-  const raw = looksLikeHeader ? grid.slice(1) : grid
+  // Row 1 is always the header. Blank inner cells are kept so columns stay
+  // aligned with the data; only trailing blanks (sheet range padding) are cut.
+  const headers = [...grid[0]]
+  while (headers.length && !headers[headers.length - 1]) headers.pop()
   // Drop rows that are entirely empty (e.g. blank separator lines).
-  const rawTrimmed = raw.filter((row) => row.some((c) => c.length > 0))
+  const rawTrimmed = grid.slice(1).filter((row) => row.some((c) => c.length > 0))
 
   const rows: ImportedWork[] = []
   for (const row of rawTrimmed) {
